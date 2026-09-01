@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "arl-evidence"
+version = "0.1.0"
+description = "Immutable cryptographic evidence collection and audit reporting for Agent Reliability Lab"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+dependencies = [
+    "arl-core>=0.1.0",
+    "arl-protocol>=0.1.0",
+    "arl-scenario-engine>=0.1.0",
+    "arl-execution-engine>=0.1.0",
+    "arl-grading-engine>=0.1.0",
+    "pydantic>=2.7.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/arl"]
