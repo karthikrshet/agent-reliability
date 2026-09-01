@@ -83,8 +83,6 @@ select = [
   "PERF",# perflint
 ]
 ignore = [
-  "ANN101",  # missing type annotation for self
-  "ANN102",  # missing type annotation for cls
   "ANN401",  # dynamically typed expressions (Any) — allowed in adapters
   "TRY003",  # avoid specifying messages outside exception class
   "PLR0913", # too many arguments — unavoidable in some constructors
