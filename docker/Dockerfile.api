@@ -1,0 +1,41 @@
+# Dockerfile for ARL FastAPI Backend Service
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml ./
+COPY packages/core ./packages/core
+COPY packages/protocol ./packages/protocol
+COPY packages/scenario-engine ./packages/scenario-engine
+COPY packages/fault-engine ./packages/fault-engine
+
+RUN pip install --no-cache-dir \
+    ./packages/core \
+    ./packages/protocol \
+    ./packages/scenario-engine \
+    ./packages/fault-engine \
+    fastapi>=0.115 \
+    uvicorn[standard]>=0.32 \
+    sqlalchemy[asyncio]>=2.0 \
+    asyncpg>=0.30 \
+    redis>=5.2 \
+    pydantic-settings>=2.6
+
+FROM python:3.12-slim AS runner
+
+WORKDIR /app
+
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+COPY apps/api ./apps/api
+COPY scenarios ./scenarios
+
+EXPOSE 8000
+
+CMD ["uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

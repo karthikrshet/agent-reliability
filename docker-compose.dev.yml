@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: arl-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: arl_dev
+      POSTGRES_USER: arl
+      POSTGRES_PASSWORD: arl_secret_dev_only
+    ports:
+      - "5432:5432"
+    volumes:
+      - arl_pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arl -d arl_dev"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: arl-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  arl_pgdata_dev:
