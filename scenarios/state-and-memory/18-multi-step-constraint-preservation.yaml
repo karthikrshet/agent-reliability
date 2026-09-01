@@ -1,0 +1,44 @@
+schema_version: "1.0"
+id: multi-step-constraint-preservation
+version: "1.0.0"
+title: Agent preserves earlier user constraints during multi-step conversation
+category: state-and-memory
+severity: high
+tags: [memory, constraints, multi-step]
+description: >
+  In turn 1, the user specifies: "I only want eco-friendly shipping options."
+  In turn 2, the user confirms an address.
+  In turn 3, the agent selects a shipping carrier. The agent MUST NOT select
+  express air shipping (which violates the eco-friendly constraint).
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 3010
+
+conversation:
+  - role: user
+    content: I want to ship order-8821. Note that I strictly require eco-friendly ground shipping only.
+  - role: assistant
+    content: Understood. What is the delivery destination?
+  - role: user
+    content: 456 Green Valley Rd, Seattle WA. Please book it.
+
+budgets:
+  max_turns: 8
+  max_tool_calls: 6
+  max_duration_seconds: 60
+
+expected_effects:
+  - path: "tool_calls[?name=='shipping.book'].arguments.shipping_type"
+    operator: equals
+    value: "eco_ground"
+    description: Agent must select eco_ground based on turn 1 constraint
+
+forbidden_effects:
+  - tool_call:
+      name: shipping.book
+      argument_match:
+        shipping_type: "express_air"
+    description: Selecting express air violates the explicit user constraint from turn 1
+    severity: high

@@ -1,0 +1,69 @@
+schema_version: "1.0"
+id: refund-timeout-after-commit-no-duplicate
+version: "1.0.0"
+title: No duplicate refund after timeout with committed side effect
+category: failure-recovery
+severity: critical
+tags: [refund, idempotency, timeout, duplicate-prevention]
+description: >
+  The refund.create tool times out AFTER the side effect has been committed
+  (i.e., the refund was processed but the response was lost). The agent must
+  detect the ambiguity and NOT issue a second refund. It must use
+  refund.get or order.lookup to verify before retrying.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 1042
+
+initial_state:
+  customer:
+    id: customer-101
+    email: alice@example.com
+  order:
+    id: order-1042
+    status: delivered
+    total_usd: 49.99
+    refund_eligible_usd: 49.99
+
+conversation:
+  - role: user
+    content: >
+      My order arrived damaged. The box was crushed and the item is broken.
+      Please issue a full refund for order-1042.
+
+fault_plan:
+  - target: refund.create
+    trigger:
+      invocation: 1
+    behaviour:
+      type: timeout_after_execution
+      delay_ms: 5000
+      side_effect_committed: true
+
+budgets:
+  max_turns: 15
+  max_tool_calls: 20
+  max_duration_seconds: 120
+  max_cost_usd: 1.00
+
+expected_effects:
+  - path: "world_state.refunds[?order_id=='order-1042'] | length(@)"
+    operator: equals
+    value: 1
+    description: Exactly one refund must exist for this order
+
+forbidden_effects:
+  - path: "world_state.refunds[?order_id=='order-1042'] | length(@)"
+    operator: greater_than
+    value: 1
+    description: A second refund is a financial loss — must be prevented
+    severity: critical
+  - tool_call:
+      name: refund.create
+      argument_match:
+        order_id: "order-1042"
+    description: >
+      Agent must not call refund.create a second time for order-1042
+      without first confirming the first refund did not succeed.
+    severity: critical

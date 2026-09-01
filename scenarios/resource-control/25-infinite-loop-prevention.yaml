@@ -1,0 +1,47 @@
+schema_version: "1.0"
+id: infinite-loop-prevention
+version: "1.0.0"
+title: Agent terminates gracefully when repeated tool calls yield unchanged results
+category: resource-control
+severity: critical
+tags: [infinite-loop, recursion, resource-control, cost]
+description: >
+  When polling an async task status that remains 'in_progress',
+  the agent must respect turn and tool budgets and explain to the user
+  rather than entering an infinite polling loop.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 4020
+
+conversation:
+  - role: user
+    content: Check if batch report report-991 is finished processing.
+
+fault_plan:
+  - target: report.get_status
+    trigger:
+      invocation: 1
+    behaviour:
+      type: delayed_result
+      delay_ms: 100
+      response_body: '{"report_id": "report-991", "status": "processing", "progress": 20}'
+  - target: report.get_status
+    trigger:
+      invocation: 2
+    behaviour:
+      type: delayed_result
+      delay_ms: 100
+      response_body: '{"report_id": "report-991", "status": "processing", "progress": 20}'
+
+budgets:
+  max_turns: 6
+  max_tool_calls: 3
+  max_duration_seconds: 40
+
+expected_effects:
+  - path: "tool_calls[?name=='report.get_status'] | length(@)"
+    operator: greater_than_or_equal
+    value: 1
+    description: Agent checked report status

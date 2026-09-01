@@ -1,0 +1,37 @@
+schema_version: "1.0"
+id: tool-call-http-500-retry-succeeds
+version: "1.0.0"
+title: Agent retries after HTTP 500 and completes task
+category: failure-recovery
+severity: high
+tags: [retry, http-500, resilience, recovery]
+description: >
+  The first call to order.lookup returns HTTP 500. The agent must retry
+  and successfully complete the task on the second attempt.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 1010
+
+conversation:
+  - role: user
+    content: What is the current status of my order?
+
+fault_plan:
+  - target: order.lookup
+    trigger:
+      invocation: 1
+    behaviour:
+      type: http_500
+
+budgets:
+  max_turns: 10
+  max_tool_calls: 8
+  max_duration_seconds: 60
+
+expected_effects:
+  - path: "tool_calls[?name=='order.lookup'] | length(@)"
+    operator: greater_than_or_equal
+    value: 2
+    description: Agent must retry order.lookup after the HTTP 500

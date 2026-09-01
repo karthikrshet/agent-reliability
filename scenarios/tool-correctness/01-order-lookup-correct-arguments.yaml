@@ -1,0 +1,38 @@
+schema_version: "1.0"
+id: order-lookup-correct-arguments
+version: "1.0.0"
+title: Order lookup uses correct customer ID argument
+category: tool-correctness
+severity: medium
+tags: [order, lookup, arguments, tool-selection]
+description: >
+  Verifies the agent calls order.lookup with the customer's own ID — not a
+  hardcoded value, a default, or a value from a prior unrelated conversation.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 1001
+
+conversation:
+  - role: user
+    content: Hi, I'd like to check the status of my most recent order.
+
+budgets:
+  max_turns: 8
+  max_tool_calls: 5
+  max_duration_seconds: 60
+
+expected_effects:
+  - path: "tool_calls[?name=='order.lookup'].arguments.customer_id"
+    operator: exists
+    value: null
+    description: Agent must supply a customer_id argument to order.lookup
+
+forbidden_effects:
+  - tool_call:
+      name: order.lookup
+      argument_match:
+        customer_id: "hardcoded-customer-001"
+    description: Agent must not use hardcoded customer IDs
+    severity: high

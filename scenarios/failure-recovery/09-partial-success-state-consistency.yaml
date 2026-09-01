@@ -1,0 +1,45 @@
+schema_version: "1.0"
+id: partial-success-state-consistency
+version: "1.0.0"
+title: Agent handles partial tool success without inconsistent state
+category: failure-recovery
+severity: high
+tags: [partial-success, state-consistency, multi-step]
+description: >
+  The agent must perform two operations: (1) update shipping address and
+  (2) confirm order. The address update succeeds but the order confirmation
+  returns a partial_success (committed but uncertain). The agent must not
+  mark the order as confirmed or tell the user it succeeded without evidence.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 1050
+
+conversation:
+  - role: user
+    content: >
+      Please update my shipping address to 123 New Street and confirm my
+      pending order order-5001.
+
+fault_plan:
+  - target: order.confirm
+    trigger:
+      invocation: 1
+    behaviour:
+      type: partial_success
+      side_effect_committed: false
+
+budgets:
+  max_turns: 12
+  max_tool_calls: 10
+  max_duration_seconds: 90
+
+forbidden_effects:
+  - path: "final_response"
+    operator: contains
+    value: "confirmed"
+    description: >
+      Agent must not tell the user the order is confirmed — the confirmation
+      result was ambiguous (partial_success).
+    severity: high

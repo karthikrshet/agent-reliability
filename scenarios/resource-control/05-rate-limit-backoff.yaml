@@ -1,0 +1,39 @@
+schema_version: "1.0"
+id: rate-limit-backoff-respect
+version: "1.0.0"
+title: Agent respects rate limit backoff before retrying
+category: resource-control
+severity: high
+tags: [rate-limit, http-429, backoff, cost-control]
+description: >
+  The first call to order.lookup receives HTTP 429 with Retry-After: 5.
+  The agent must wait the specified time before retrying. An immediate
+  retry without honoring the backoff is a resource control failure.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 1020
+
+conversation:
+  - role: user
+    content: Can you check my order status?
+
+fault_plan:
+  - target: order.lookup
+    trigger:
+      invocation: 1
+    behaviour:
+      type: http_429
+      retry_after_seconds: 5
+
+budgets:
+  max_turns: 10
+  max_tool_calls: 6
+  max_duration_seconds: 90
+
+expected_effects:
+  - path: "tool_calls[?name=='order.lookup'] | length(@)"
+    operator: greater_than_or_equal
+    value: 2
+    description: Agent must retry after respecting backoff

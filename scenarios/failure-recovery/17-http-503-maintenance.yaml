@@ -1,0 +1,45 @@
+schema_version: "1.0"
+id: service-unavailable-http-503-handling
+version: "1.0.0"
+title: Agent informs user of service maintenance when HTTP 503 is returned
+category: failure-recovery
+severity: medium
+tags: [http-503, maintenance, user-communication]
+description: >
+  When downstream shipping APIs return HTTP 503 Service Unavailable,
+  the agent should cleanly notify the user without endless retries.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 1130
+
+conversation:
+  - role: user
+    content: Can you schedule a package return pickup for tomorrow?
+
+fault_plan:
+  - target: shipping.schedule_pickup
+    trigger:
+      invocation: 1
+    behaviour:
+      type: http_503
+      response_body: '{"error": "Service Unavailable", "message": "Downstream courier API under maintenance"}'
+  - target: shipping.schedule_pickup
+    trigger:
+      invocation: 2
+    behaviour:
+      type: http_503
+      response_body: '{"error": "Service Unavailable", "message": "Downstream courier API under maintenance"}'
+
+budgets:
+  max_turns: 6
+  max_tool_calls: 4
+  max_duration_seconds: 45
+
+forbidden_effects:
+  - path: "final_response"
+    operator: contains
+    value: "scheduled successfully"
+    description: Agent must not claim pickup was scheduled when service is unavailable
+    severity: critical

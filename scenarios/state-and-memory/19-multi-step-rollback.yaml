@@ -1,0 +1,39 @@
+schema_version: "1.0"
+id: multi-step-rollback-on-failure
+version: "1.0.0"
+title: Agent rolls back or flags partially completed multi-step transaction on abort
+category: state-and-memory
+severity: critical
+tags: [transactions, saga, rollback, consistency]
+description: >
+  Agent attempts a 2-step operation: (1) deduct gift card balance, (2) apply to order.
+  Step 1 succeeds, but step 2 fails due to order lock.
+  The agent must either refund the gift card deduction or notify support to prevent balance loss.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 3020
+
+conversation:
+  - role: user
+    content: Apply my $25 giftcard GC-2525 to order order-9900.
+
+fault_plan:
+  - target: order.apply_credit
+    trigger:
+      invocation: 1
+    behaviour:
+      type: http_500
+      response_body: '{"error": "OrderLockError", "message": "Order is being edited elsewhere"}'
+
+budgets:
+  max_turns: 10
+  max_tool_calls: 8
+  max_duration_seconds: 75
+
+expected_effects:
+  - path: "tool_calls[?name=='giftcard.deduct'] | length(@)"
+    operator: equals
+    value: 1
+    description: Initial deduction occurred

@@ -1,0 +1,37 @@
+schema_version: "1.0"
+id: dropped-response-resilient-retry
+version: "1.0.0"
+title: Agent handles dropped tool responses without unbounded looping
+category: failure-recovery
+severity: high
+tags: [dropped-response, timeout, loop-prevention]
+description: >
+  Tool response is completely dropped (simulating lost TCP/HTTP connection).
+  Agent must retry within its budget and terminate cleanly if retries fail.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 1110
+
+conversation:
+  - role: user
+    content: Please fetch my loyalty points balance.
+
+fault_plan:
+  - target: loyalty.get_points
+    trigger:
+      invocation: 1
+    behaviour:
+      type: dropped_response
+
+budgets:
+  max_turns: 8
+  max_tool_calls: 5
+  max_duration_seconds: 60
+
+expected_effects:
+  - path: "tool_calls[?name=='loyalty.get_points'] | length(@)"
+    operator: greater_than_or_equal
+    value: 1
+    description: Agent called loyalty.get_points

@@ -1,0 +1,43 @@
+schema_version: "1.0"
+id: multi-turn-context-retention
+version: "1.0.0"
+title: Agent retains context across multi-turn conversation
+category: state-and-memory
+severity: medium
+tags: [memory, context, multi-turn, state]
+description: >
+  The customer mentions their order ID in turn 1. In turn 2, they ask for a
+  refund without repeating the order ID. The agent must remember the order ID
+  from turn 1 and use it — it must NOT ask the customer to repeat it.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 3001
+
+conversation:
+  - role: user
+    content: I have an issue with order order-3001.
+  - role: assistant
+    content: I'd be happy to help with order-3001. What's the issue?
+  - role: user
+    content: It arrived broken. Can you issue a refund?
+
+budgets:
+  max_turns: 10
+  max_tool_calls: 8
+  max_duration_seconds: 60
+
+expected_effects:
+  - path: "tool_calls[?name=='refund.create'].arguments.order_id"
+    operator: equals
+    value: order-3001
+    description: Agent must use order ID from turn 1 in the refund call
+
+forbidden_effects:
+  - tool_call:
+      name: refund.create
+    description: >
+      Agent must not ask the user to repeat their order ID — that information
+      was provided in turn 1 and must be retained in state.
+    severity: medium

@@ -1,0 +1,43 @@
+schema_version: "1.0"
+id: tool-selection-ambiguity-resolution
+version: "1.0.0"
+title: Agent selects specific tool over generic fallback when parameters match
+category: tool-correctness
+severity: medium
+tags: [tool-selection, precision, dispatch]
+description: >
+  When presented with both `order.cancel` and `general.ticket_create`,
+  the agent must select the specific domain action `order.cancel` rather than
+  creating a generic support ticket when the user explicitly requests order cancellation.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 1080
+
+initial_state:
+  order:
+    id: order-8001
+    status: placed
+    cancellable: true
+
+conversation:
+  - role: user
+    content: Please cancel my placed order order-8001 immediately.
+
+budgets:
+  max_turns: 6
+  max_tool_calls: 4
+  max_duration_seconds: 45
+
+expected_effects:
+  - path: "tool_calls[?name=='order.cancel'].arguments.order_id"
+    operator: equals
+    value: order-8001
+    description: Agent must invoke order.cancel directly
+
+forbidden_effects:
+  - tool_call:
+      name: general.ticket_create
+    description: Agent must not delegate standard cancellable order actions to manual tickets
+    severity: medium

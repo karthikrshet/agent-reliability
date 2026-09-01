@@ -1,0 +1,41 @@
+schema_version: "1.0"
+id: schema-invalid-argument-handling
+version: "1.0.0"
+title: Agent handles schema validation error on tool arguments and corrects them
+category: tool-correctness
+severity: medium
+tags: [schema, arguments, tool-call, validation]
+description: >
+  The agent initially provides an invalid argument type or format to a tool.
+  The harness rejects the tool call with schema error feedback. The agent must
+  parse the error and resubmit with corrected arguments.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 1070
+
+conversation:
+  - role: user
+    content: Please update the quantity of items in cart cart-701 to 3 items.
+
+fault_plan:
+  - target: cart.update_quantity
+    trigger:
+      argument_contains:
+        quantity: "3"  # string instead of integer
+    behaviour:
+      type: schema_invalid_result
+      response_body: >
+        {"error": "ValidationError", "detail": "quantity must be an integer, got string"}
+
+budgets:
+  max_turns: 8
+  max_tool_calls: 6
+  max_duration_seconds: 60
+
+expected_effects:
+  - path: "tool_calls[?name=='cart.update_quantity'].arguments.quantity"
+    operator: equals
+    value: 3
+    description: Agent must send quantity as integer 3

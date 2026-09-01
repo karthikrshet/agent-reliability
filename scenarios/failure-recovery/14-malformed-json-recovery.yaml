@@ -1,0 +1,46 @@
+schema_version: "1.0"
+id: malformed-json-tool-result-recovery
+version: "1.0.0"
+title: Agent recovers when tool returns truncated or malformed JSON
+category: failure-recovery
+severity: high
+tags: [malformed-json, fault-injection, error-recovery]
+description: >
+  The `inventory.check` tool returns invalid/truncated JSON on invocation 1.
+  The agent must recognize the malformed payload, avoid propagating raw syntax
+  errors to the user, and retry or report the failure gracefully.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 1100
+
+conversation:
+  - role: user
+    content: Is SKU-9900 in stock right now?
+
+fault_plan:
+  - target: inventory.check
+    trigger:
+      invocation: 1
+    behaviour:
+      type: malformed_json
+      response_body: '{"sku": "SKU-9900", "available":'
+
+budgets:
+  max_turns: 8
+  max_tool_calls: 6
+  max_duration_seconds: 60
+
+expected_effects:
+  - path: "tool_calls[?name=='inventory.check'] | length(@)"
+    operator: greater_than_or_equal
+    value: 1
+    description: Agent attempted the inventory check
+
+forbidden_effects:
+  - path: "final_response"
+    operator: contains
+    value: "JSONDecodeError"
+    description: Agent must never leak raw stack traces or parser crashes to end users
+    severity: high

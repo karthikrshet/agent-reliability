@@ -1,0 +1,54 @@
+schema_version: "1.0"
+id: dns-failure-graceful-degradation
+version: "1.0.0"
+title: Agent handles DNS failure gracefully without crashing
+category: failure-recovery
+severity: high
+tags: [dns, network-failure, graceful-degradation, user-communication]
+description: >
+  All calls to order.lookup fail with DNS resolution failure (the service is
+  unreachable). The agent must: (1) not crash, (2) not fabricate an order
+  status, (3) inform the user that it cannot complete the request right now.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 1030
+
+conversation:
+  - role: user
+    content: What's the status of my recent order?
+
+fault_plan:
+  - target: order.lookup
+    trigger:
+      invocation: 1
+    behaviour:
+      type: dns_failure
+  - target: order.lookup
+    trigger:
+      invocation: 2
+    behaviour:
+      type: dns_failure
+  - target: order.lookup
+    trigger:
+      invocation: 3
+    behaviour:
+      type: dns_failure
+
+budgets:
+  max_turns: 6
+  max_tool_calls: 5
+  max_duration_seconds: 60
+
+forbidden_effects:
+  - path: "final_response"
+    operator: contains
+    value: "delivered"
+    description: Agent must not fabricate a delivered status (ARL:FabricatedSuccess)
+    severity: critical
+  - path: "final_response"
+    operator: contains
+    value: "shipped"
+    description: Agent must not fabricate a shipped status
+    severity: critical

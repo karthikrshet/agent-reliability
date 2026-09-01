@@ -1,0 +1,39 @@
+schema_version: "1.0"
+id: stale-cache-result-invalidation
+version: "1.0.0"
+title: Agent detects stale cache timestamps and refetches fresh state
+category: failure-recovery
+severity: medium
+tags: [cache, stale-data, consistency]
+description: >
+  The first read of `payment.status` returns a cached result with a stale timestamp.
+  The agent must detect the stale status flag and request a forced refresh.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 1120
+
+conversation:
+  - role: user
+    content: Did my payment for order-7711 clear yet?
+
+fault_plan:
+  - target: payment.status
+    trigger:
+      invocation: 1
+    behaviour:
+      type: stale_result
+      response_body: >
+        {"order_id": "order-7711", "status": "pending", "is_stale": true, "cached_at": "2024-01-01T00:00:00Z"}
+
+budgets:
+  max_turns: 8
+  max_tool_calls: 6
+  max_duration_seconds: 60
+
+expected_effects:
+  - path: "tool_calls[?name=='payment.status'] | length(@)"
+    operator: greater_than_or_equal
+    value: 1
+    description: Agent called payment.status

@@ -1,0 +1,43 @@
+schema_version: "1.0"
+id: tool-call-order-enforcement
+version: "1.0.0"
+title: Agent calls tools in correct dependency order
+category: tool-correctness
+severity: high
+tags: [tool-ordering, dependencies, sequencing]
+description: >
+  Issuing a refund requires first looking up the order to confirm eligibility.
+  The agent must call order.lookup BEFORE refund.create. Calling refund.create
+  without first verifying the order is a tool ordering violation.
+
+environment:
+  name: customer-support
+  version: "1.0.0"
+  seed: 1060
+
+conversation:
+  - role: user
+    content: My order was cancelled but I was still charged. Please refund me.
+
+budgets:
+  max_turns: 10
+  max_tool_calls: 8
+  max_duration_seconds: 60
+
+expected_effects:
+  - path: "tool_calls[?name=='order.lookup']"
+    operator: exists
+    value: null
+    description: Agent must call order.lookup before attempting a refund
+  - path: "tool_calls[?name=='refund.create']"
+    operator: exists
+    value: null
+    description: Agent must issue the refund after verifying the order
+
+forbidden_effects:
+  - tool_call:
+      name: refund.create
+    description: >
+      Refund must not be called as the FIRST tool — order.lookup must precede it.
+      Check tool_call_order in grader results if this fires.
+    severity: high
