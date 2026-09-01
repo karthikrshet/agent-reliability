@@ -277,7 +277,7 @@ def test_forbidden_effect_without_path_or_tool_call_raises() -> None:
 
 
 @pytest.mark.unit
-def test_validate_scenario_file_returns_empty_for_valid(tmp_path: "pytest.TempPathFactory") -> None:
+def test_validate_scenario_file_returns_empty_for_valid(tmp_path: pytest.TempPathFactory) -> None:
     scenario_file = tmp_path / "valid.yaml"
     scenario_file.write_text(VALID_MINIMAL_YAML, encoding="utf-8")
     errors = validate_scenario_file(scenario_file)
@@ -286,7 +286,7 @@ def test_validate_scenario_file_returns_empty_for_valid(tmp_path: "pytest.TempPa
 
 @pytest.mark.unit
 def test_validate_scenario_file_returns_errors_for_invalid(
-    tmp_path: "pytest.TempPathFactory",
+    tmp_path: pytest.TempPathFactory,
 ) -> None:
     invalid_yaml = VALID_MINIMAL_YAML.replace('schema_version: "1.0"', "")
     scenario_file = tmp_path / "invalid.yaml"
@@ -297,7 +297,7 @@ def test_validate_scenario_file_returns_errors_for_invalid(
 
 @pytest.mark.unit
 def test_validate_scenario_file_missing_file_returns_error(
-    tmp_path: "pytest.TempPathFactory",
+    tmp_path: pytest.TempPathFactory,
 ) -> None:
     errors = validate_scenario_file(tmp_path / "does_not_exist.yaml")
     assert len(errors) > 0

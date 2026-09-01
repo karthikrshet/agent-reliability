@@ -21,9 +21,9 @@ from hypothesis import strategies as st
 
 from arl.core.errors import InvalidStateTransitionError, TerminalStateImmutableError
 from arl.core.state_machine import (
+    TERMINAL_STATES,
     EvaluationRunState,
     EvaluationRunStateMachine,
-    TERMINAL_STATES,
     allowed_transitions,
     is_terminal,
 )

@@ -19,11 +19,11 @@ Adapters must not execute or eval any content returned by the agent.
 from __future__ import annotations
 
 import enum
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
-from typing import Any, AsyncIterator, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Session and context schemas

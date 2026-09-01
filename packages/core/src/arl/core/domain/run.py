@@ -91,7 +91,7 @@ class ForbiddenEffect(BaseModel):
 
     @field_validator("path", "tool_call", mode="before")
     @classmethod
-    def at_least_one_constraint(cls, v: Any, info: Any) -> Any:
+    def at_least_one_constraint(cls, v: Any, _info: Any) -> Any:
         return v  # cross-field validation is done in model_validator
 
     def model_post_init(self, __context: Any) -> None:

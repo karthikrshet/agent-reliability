@@ -20,14 +20,13 @@ import pytest
 
 from arl.core.errors import InvalidStateTransitionError, TerminalStateImmutableError
 from arl.core.state_machine import (
+    TERMINAL_STATES,
     EvaluationRunState,
     EvaluationRunStateMachine,
     StateTransition,
-    TERMINAL_STATES,
     allowed_transitions,
     is_terminal,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers

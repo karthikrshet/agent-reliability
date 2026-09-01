@@ -14,7 +14,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import jsonschema
 import yaml
@@ -83,7 +83,7 @@ def _load_raw_yaml(path: Path) -> dict[str, Any]:
             errors=["Scenario file must be a YAML mapping (dict), not a list or scalar."],
         )
 
-    return data
+    return cast(dict[str, Any], data)
 
 
 def _validate_against_schema(
@@ -126,22 +126,21 @@ def _parse_scenario(data: dict[str, Any]) -> ParsedScenario:
         semantic_rubric=grading_raw.get("semantic", {}).get("rubric"),
     )
 
-    fault_plan_entries = []
-    for entry in data.get("fault_plan", []):
-        fault_plan_entries.append(
-            FaultPlanEntrySpec(
-                target=entry["target"],
-                trigger=FaultTriggerSpec(**entry.get("trigger", {})),
-                behaviour=FaultBehaviourSpec(
-                    type=entry["behaviour"]["type"],
-                    delay_ms=entry["behaviour"].get("delay_ms", 0),
-                    http_status=entry["behaviour"].get("http_status"),
-                    retry_after_seconds=entry["behaviour"].get("retry_after_seconds"),
-                    side_effect_committed=entry["behaviour"].get("side_effect_committed", False),
-                    response_body=entry["behaviour"].get("response_body"),
-                ),
-            )
+    fault_plan_entries = [
+        FaultPlanEntrySpec(
+            target=entry["target"],
+            trigger=FaultTriggerSpec(**entry.get("trigger", {})),
+            behaviour=FaultBehaviourSpec(
+                type=entry["behaviour"]["type"],
+                delay_ms=entry["behaviour"].get("delay_ms", 0),
+                http_status=entry["behaviour"].get("http_status"),
+                retry_after_seconds=entry["behaviour"].get("retry_after_seconds"),
+                side_effect_committed=entry["behaviour"].get("side_effect_committed", False),
+                response_body=entry["behaviour"].get("response_body"),
+            ),
         )
+        for entry in data.get("fault_plan", [])
+    ]
 
     try:
         return ParsedScenario(
@@ -251,13 +250,13 @@ def validate_scenario_file(path: Path | str) -> list[str]:
     try:
         raw_data = _load_raw_yaml(resolved)
     except ScenarioValidationError as exc:
-        return exc.context.get("errors", [str(exc)])
+        return cast(list[str], exc.context.get("errors", [str(exc)]))
 
     version = raw_data.get("schema_version", "<missing>")
     try:
         schema = _get_schema_for_version(str(version))
     except ScenarioValidationError as exc:
-        return exc.context.get("errors", [str(exc)])
+        return cast(list[str], exc.context.get("errors", [str(exc)]))
 
     validator = jsonschema.Draft202012Validator(schema)
     json_errors = sorted(validator.iter_errors(raw_data), key=lambda e: list(e.path))

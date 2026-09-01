@@ -339,7 +339,7 @@ class ForbiddenEffectSpec(BaseModel):
     severity: str = "critical"
 
     @model_validator(mode="after")
-    def validate_constraint(self) -> "ForbiddenEffectSpec":
+    def validate_constraint(self) -> ForbiddenEffectSpec:
         if self.path is None and self.tool_call is None:
             msg = "ForbiddenEffectSpec must specify either 'path' or 'tool_call'"
             raise ValueError(msg)

@@ -88,12 +88,18 @@ ignore = [
   "ANN401",  # dynamically typed expressions (Any) — allowed in adapters
   "TRY003",  # avoid specifying messages outside exception class
   "PLR0913", # too many arguments — unavoidable in some constructors
+  "ERA001",  # commented-out code heuristics (flags decorative comments)
+  "PLC0415", # import outside top level
+  "UP042",   # str, Enum inheritance (Pydantic v2 compatible)
+  "TC003",   # type-checking block requirement
+  "E501",    # line length (handled by formatter)
+  "S105",    # possible hardcoded password (flags PASS and PASS_AT_K verdicts)
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "ANN", "PLR2004"]
-"**/migrations/**" = ["ANN"]
-"**/alembic/**" = ["ANN"]
+"**/tests/**" = ["S101", "ANN", "PLR2004", "PT", "ARG", "TRY", "SLF001"]
+"**/migrations/**" = ["ANN", "I"]
+"**/alembic/**" = ["ANN", "I", "E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["arl"]
@@ -101,7 +107,7 @@ known-first-party = ["arl"]
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
-magic-trailing-comma = true
+skip-magic-trailing-comma = false
 
 # ---------------------------------------------------------------------------
 # MyPy — strict type checking
@@ -109,6 +115,8 @@ magic-trailing-comma = true
 [tool.mypy]
 python_version = "3.12"
 strict = true
+explicit_package_bases = true
+mypy_path = "packages/core/src:packages/protocol/src:packages/scenario-engine/src:packages/fault-engine/src"
 warn_return_any = true
 warn_unused_configs = true
 warn_redundant_casts = true

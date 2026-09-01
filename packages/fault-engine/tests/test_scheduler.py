@@ -24,7 +24,6 @@ from arl.scenario_engine.schema import (
     FaultTriggerSpec,
 )
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -194,15 +193,12 @@ def test_same_seed_produces_identical_results() -> None:
     """DETERMINISM: same seed + same plan = same schedule, always."""
     entry = make_entry(target="refund.create", invocation=1)
 
-    results_a = []
+    tools = ["refund.create", "order.lookup", "refund.create"]
     sched_a = make_scheduler(entries=[entry], seed=12345)
-    for tool in ["refund.create", "order.lookup", "refund.create"]:
-        results_a.append(sched_a.check(tool) is not None)
+    results_a = [sched_a.check(t) is not None for t in tools]
 
-    results_b = []
     sched_b = make_scheduler(entries=[entry], seed=12345)
-    for tool in ["refund.create", "order.lookup", "refund.create"]:
-        results_b.append(sched_b.check(tool) is not None)
+    results_b = [sched_b.check(t) is not None for t in tools]
 
     assert results_a == results_b
 
@@ -263,7 +259,8 @@ def test_make_fault_event_is_immutable() -> None:
     assert scheduled is not None
 
     event = scheduler.make_fault_event(scheduled=scheduled, tool_name="refund.create")
-    with pytest.raises((AttributeError, TypeError)):
+    from pydantic import ValidationError
+    with pytest.raises((AttributeError, TypeError, ValidationError)):
         event.fault_type = None  # type: ignore[misc]
 
 

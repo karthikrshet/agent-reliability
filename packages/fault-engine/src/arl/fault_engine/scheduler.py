@@ -25,15 +25,16 @@ import logging
 import random
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from arl.core.domain.faults import FaultEvent, FaultType
 from arl.core.errors import FaultInjectionError
-from arl.scenario_engine.schema import (
-    FaultBehaviourSpec,
-    FaultPlanEntrySpec,
-    FaultTriggerSpec,
-)
+
+if TYPE_CHECKING:
+    from arl.scenario_engine.schema import (
+        FaultPlanEntrySpec,
+        FaultTriggerSpec,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -133,14 +134,12 @@ class FaultScheduler:
     ) -> bool:
         """Return True if this trigger fires for the current invocation."""
         # Check invocation-based trigger
-        if trigger.invocation is not None:
-            if invocation_index != trigger.invocation:
-                return False
+        if trigger.invocation is not None and invocation_index != trigger.invocation:
+            return False
 
         # Check time-based trigger
-        if trigger.after_seconds is not None:
-            if elapsed_seconds < trigger.after_seconds:
-                return False
+        if trigger.after_seconds is not None and elapsed_seconds < trigger.after_seconds:
+            return False
 
         # Check argument-contains trigger
         if trigger.argument_contains is not None:
