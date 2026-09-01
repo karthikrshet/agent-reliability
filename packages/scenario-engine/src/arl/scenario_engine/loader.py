@@ -83,7 +83,7 @@ def _load_raw_yaml(path: Path) -> dict[str, Any]:
             errors=["Scenario file must be a YAML mapping (dict), not a list or scalar."],
         )
 
-    return cast(dict[str, Any], data)
+    return cast("dict[str, Any]", data)
 
 
 def _validate_against_schema(
@@ -250,13 +250,13 @@ def validate_scenario_file(path: Path | str) -> list[str]:
     try:
         raw_data = _load_raw_yaml(resolved)
     except ScenarioValidationError as exc:
-        return cast(list[str], exc.context.get("errors", [str(exc)]))
+        return cast("list[str]", exc.context.get("errors", [str(exc)]))
 
     version = raw_data.get("schema_version", "<missing>")
     try:
         schema = _get_schema_for_version(str(version))
     except ScenarioValidationError as exc:
-        return cast(list[str], exc.context.get("errors", [str(exc)]))
+        return cast("list[str]", exc.context.get("errors", [str(exc)]))
 
     validator = jsonschema.Draft202012Validator(schema)
     json_errors = sorted(validator.iter_errors(raw_data), key=lambda e: list(e.path))
