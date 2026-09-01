@@ -150,7 +150,7 @@ class CustomerSupportEnvironment:
         handler = getattr(self, handler_name, None)
         if handler is None:
             return {"error": "UnknownToolError", "detail": f"Tool '{tool_name}' not implemented"}
-        return cast(dict[str, Any], handler(arguments))
+        return cast("dict[str, Any]", handler(arguments))
 
     # ── Tool Handlers ─────────────────────────────────────────────────────────
 

@@ -13,12 +13,12 @@ ARL_ALLOW_LOCALHOST_TARGETS=true is explicitly configured for local testing.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 import contextlib
 import ipaddress
 import logging
 import os
 import socket
+from collections.abc import AsyncIterator
 from urllib.parse import urlparse
 
 import httpx
