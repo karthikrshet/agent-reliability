@@ -19,7 +19,9 @@ from arl.grading_engine.aggregator import RunAggregationResult
 class ReportGenerator:
     """Generates comprehensive JSON and Markdown audit evaluation reports."""
 
-    def __init__(self, run_result: RunAggregationResult, evidence_collector: EvidenceCollector | None = None) -> None:
+    def __init__(
+        self, run_result: RunAggregationResult, evidence_collector: EvidenceCollector | None = None
+    ) -> None:
         self.res = run_result
         self.collector = evidence_collector
 
@@ -96,52 +98,64 @@ class ReportGenerator:
         ]
 
         if self.res.pass_at_3 is not None:
-            lines.append(f"| **Pass@3** | **{self.res.pass_at_3:.3f}** | Probability of ≥1 pass in 3 trials |")
+            lines.append(
+                f"| **Pass@3** | **{self.res.pass_at_3:.3f}** | Probability of ≥1 pass in 3 trials |"
+            )
         if self.res.pass_at_5 is not None:
-            lines.append(f"| **Pass@5** | **{self.res.pass_at_5:.3f}** | Probability of ≥1 pass in 5 trials |")
+            lines.append(
+                f"| **Pass@5** | **{self.res.pass_at_5:.3f}** | Probability of ≥1 pass in 5 trials |"
+            )
 
-        lines.extend([
-            f"| **Completed Trials** | {self.res.completed_trials} / {self.res.total_trials} | {self.res.passed_trials} passed, {self.res.failed_trials} failed |",
-            f"| **Critical Failures** | **{self.res.critical_failures}** | Safety / isolation / forbidden effects |",
-            f"| **Mean Latency** | {self.res.mean_duration_seconds:.2f}s | Average duration per trial |",
-            f"| **Mean Token Usage** | {self.res.mean_tokens:.0f} tokens | Average prompt + completion tokens |",
-            f"| **Total Cost** | ${self.res.total_cost_usd:.4f} USD | Evaluated agent execution cost |",
-            "",
-            "---",
-            "",
-            "## 2. Evaluation Category Breakdown",
-            "",
-            "| Category | Trials | Passed | Pass Rate | 95% Wilson CI | Mean Score |",
-            "| :--- | :--- | :--- | :--- | :--- | :--- |",
-        ])
+        lines.extend(
+            [
+                f"| **Completed Trials** | {self.res.completed_trials} / {self.res.total_trials} | {self.res.passed_trials} passed, {self.res.failed_trials} failed |",
+                f"| **Critical Failures** | **{self.res.critical_failures}** | Safety / isolation / forbidden effects |",
+                f"| **Mean Latency** | {self.res.mean_duration_seconds:.2f}s | Average duration per trial |",
+                f"| **Mean Token Usage** | {self.res.mean_tokens:.0f} tokens | Average prompt + completion tokens |",
+                f"| **Total Cost** | ${self.res.total_cost_usd:.4f} USD | Evaluated agent execution cost |",
+                "",
+                "---",
+                "",
+                "## 2. Evaluation Category Breakdown",
+                "",
+                "| Category | Trials | Passed | Pass Rate | 95% Wilson CI | Mean Score |",
+                "| :--- | :--- | :--- | :--- | :--- | :--- |",
+            ]
+        )
 
         for cat, summ in self.res.category_summaries.items():
             lines.append(
                 f"| `{cat}` | {summ.trials_total} | {summ.trials_passed} | {summ.pass_rate:.1%} | `[{summ.ci_lower:.1%}, {summ.ci_upper:.1%}]` | {summ.mean_score:.2f} |"
             )
 
-        lines.extend([
-            "",
-            "---",
-            "",
-            "## 3. Critical Safety & Integrity Findings",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "---",
+                "",
+                "## 3. Critical Safety & Integrity Findings",
+                "",
+            ]
+        )
 
         if not self.res.critical_findings:
-            lines.extend([
-                "> [!TIP]",
-                "> Zero critical safety findings, forbidden side effects, or tenant isolation violations detected across all completed trials.",
-                "",
-            ])
+            lines.extend(
+                [
+                    "> [!TIP]",
+                    "> Zero critical safety findings, forbidden side effects, or tenant isolation violations detected across all completed trials.",
+                    "",
+                ]
+            )
         else:
-            lines.extend([
-                "> [!CAUTION]",
-                f"> The following {len(self.res.critical_findings)} critical finding(s) were recorded. Critical findings trigger an automatic safety veto.",
-                "",
-                "| Trial ID | Category | Severity | Description |",
-                "| :--- | :--- | :--- | :--- |",
-            ])
+            lines.extend(
+                [
+                    "> [!CAUTION]",
+                    f"> The following {len(self.res.critical_findings)} critical finding(s) were recorded. Critical findings trigger an automatic safety veto.",
+                    "",
+                    "| Trial ID | Category | Severity | Description |",
+                    "| :--- | :--- | :--- | :--- |",
+                ]
+            )
             lines.extend(
                 f"| `{cf.get('trial_id')}` | `{cf.get('category')}` | **{str(cf.get('severity', 'high')).upper()}** | {cf.get('detail')} |"
                 for cf in self.res.critical_findings
@@ -150,15 +164,17 @@ class ReportGenerator:
 
         if self.collector:
             ledger_ok = self.collector.verify_ledger_integrity()
-            lines.extend([
-                "---",
-                "",
-                "## 4. Cryptographic Evidence Chain Verification",
-                "",
-                f"- **Ledger Chain Hash**: `{self.collector.current_hash}`",
-                f"- **Total Evidence Blocks**: `{len(self.collector.chain_blocks)}`",
-                f"- **Cryptographic Integrity**: {'✅ **VERIFIED (Tamper-evident chain valid)**' if ledger_ok else '❌ **FAILED INTEGRITY CHECK**'}",
-                "",
-            ])
+            lines.extend(
+                [
+                    "---",
+                    "",
+                    "## 4. Cryptographic Evidence Chain Verification",
+                    "",
+                    f"- **Ledger Chain Hash**: `{self.collector.current_hash}`",
+                    f"- **Total Evidence Blocks**: `{len(self.collector.chain_blocks)}`",
+                    f"- **Cryptographic Integrity**: {'✅ **VERIFIED (Tamper-evident chain valid)**' if ledger_ok else '❌ **FAILED INTEGRITY CHECK**'}",
+                    "",
+                ]
+            )
 
         return "\n".join(lines)

@@ -15,14 +15,14 @@ class TrialStatus(str, enum.Enum):
     """Execution status of a single trial."""
 
     PENDING = "pending"
-    CLAIMED = "claimed"           # worker has claimed this trial
+    CLAIMED = "claimed"  # worker has claimed this trial
     RUNNING = "running"
     GRADING = "grading"
     COMPLETED = "completed"
     FAILED = "failed"
     TIMED_OUT = "timed_out"
     CANCELLED = "cancelled"
-    UNKNOWN = "unknown"           # worker crashed — outcome not determined
+    UNKNOWN = "unknown"  # worker crashed — outcome not determined
 
 
 class TrialVerdict(str, enum.Enum):

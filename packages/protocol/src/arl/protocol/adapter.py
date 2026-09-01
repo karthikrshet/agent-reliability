@@ -136,10 +136,10 @@ class AgentInput(BaseModel):
 class AgentOutputType(str, enum.Enum):
     """What kind of output the agent produced."""
 
-    TEXT = "text"         # Agent produced a text response (conversation turn)
+    TEXT = "text"  # Agent produced a text response (conversation turn)
     TOOL_CALLS = "tool_calls"  # Agent wants to call tools
     INTERRUPTED = "interrupted"  # Agent is waiting for human approval
-    ERROR = "error"       # Agent reported an error
+    ERROR = "error"  # Agent reported an error
     FINISHED = "finished"  # Agent believes it has completed the task
 
 
@@ -169,10 +169,7 @@ class AgentOutput(BaseModel):
     # Text content — SECURITY: untrusted; HTML-escape before rendering
     raw_text: str | None = Field(
         default=None,
-        description=(
-            "Agent's text response. "
-            "SECURITY: Untrusted. HTML-escape before rendering."
-        ),
+        description=("Agent's text response. SECURITY: Untrusted. HTML-escape before rendering."),
     )
     # Tool calls — SECURITY: arguments are untrusted
     tool_calls: list[ToolCallRecord] = Field(default_factory=list)

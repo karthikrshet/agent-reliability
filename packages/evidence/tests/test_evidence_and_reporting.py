@@ -65,7 +65,14 @@ def test_evidence_collector_hash_chain_and_tamper_detection() -> None:
 def test_evidence_collector_from_trial_result() -> None:
     collector = EvidenceCollector()
 
-    tc = ToolCall(id="tc-1", trial_id="t1", agent_turn_id="turn-1", sequence_index=0, tool_name="order.lookup", call_arguments={"id": "1"})
+    tc = ToolCall(
+        id="tc-1",
+        trial_id="t1",
+        agent_turn_id="turn-1",
+        sequence_index=0,
+        tool_name="order.lookup",
+        call_arguments={"id": "1"},
+    )
     tr = ToolResult(id="tr-1", tool_call_id="tc-1", trial_id="t1", content={"status": "found"})
     snap = WorldStateSnapshot(
         id="s1",

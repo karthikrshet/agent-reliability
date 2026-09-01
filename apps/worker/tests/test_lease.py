@@ -41,7 +41,9 @@ async def test_lease_acquisition_and_release(async_session_factory: Any) -> None
     async with async_session_factory() as session:
         # Seed test project, agent, scenario, run, and trial
         proj = ProjectModel(id="p1", name="Proj 1", slug="proj-1")
-        agent_def = AgentDefinitionModel(id="ad1", project_id="p1", name="Agent 1", framework="mock")
+        agent_def = AgentDefinitionModel(
+            id="ad1", project_id="p1", name="Agent 1", framework="mock"
+        )
         agent_ver = AgentVersionModel(id="av1", agent_definition_id="ad1", version_tag="1.0.0")
         scen = ScenarioModel(id="s1", project_id="p1", name="Scen 1", category="tool-correctness")
         scen_ver = ScenarioVersionModel(

@@ -82,13 +82,22 @@ class EvaluationRunAggregator:
         total_trials = len(trials)
         completed_trials = sum(1 for t in trials if t.id in trial_verdicts)
         passed_trials = sum(1 for v in trial_verdicts.values() if v == TrialVerdict.PASS)
-        failed_trials = sum(1 for v in trial_verdicts.values() if v in (TrialVerdict.FAIL, TrialVerdict.CRITICAL_FAIL))
-        critical_failures = sum(1 for v in trial_verdicts.values() if v == TrialVerdict.CRITICAL_FAIL)
+        failed_trials = sum(
+            1
+            for v in trial_verdicts.values()
+            if v in (TrialVerdict.FAIL, TrialVerdict.CRITICAL_FAIL)
+        )
+        critical_failures = sum(
+            1 for v in trial_verdicts.values() if v == TrialVerdict.CRITICAL_FAIL
+        )
 
         # 1. Critical findings collection
         critical_findings: list[dict[str, Any]] = []
         for gr in grader_results:
-            if gr.is_critical_failure or gr.severity in (FindingSeverity.CRITICAL, FindingSeverity.HIGH):
+            if gr.is_critical_failure or gr.severity in (
+                FindingSeverity.CRITICAL,
+                FindingSeverity.HIGH,
+            ):
                 critical_findings.extend(
                     {
                         "trial_id": gr.trial_id,
@@ -109,8 +118,16 @@ class EvaluationRunAggregator:
                 confidence=self.confidence_level,
             )
             pass_at_1 = compute_pass_at_k(completed_trials, passed_trials, k=1)
-            pass_at_3 = compute_pass_at_k(completed_trials, passed_trials, k=3) if completed_trials >= 3 else None
-            pass_at_5 = compute_pass_at_k(completed_trials, passed_trials, k=5) if completed_trials >= 5 else None
+            pass_at_3 = (
+                compute_pass_at_k(completed_trials, passed_trials, k=3)
+                if completed_trials >= 3
+                else None
+            )
+            pass_at_5 = (
+                compute_pass_at_k(completed_trials, passed_trials, k=5)
+                if completed_trials >= 5
+                else None
+            )
         else:
             pass_rate = 0.0
             ci_lower, ci_upper = 0.0, 0.0
@@ -134,13 +151,23 @@ class EvaluationRunAggregator:
         unique_cats = set(category_map.values()) if category_map else {"general"}
 
         for cat in unique_cats:
-            cat_trial_ids = [tid for tid, c in category_map.items() if c == cat] if category_map else list(trial_verdicts.keys())
+            cat_trial_ids = (
+                [tid for tid, c in category_map.items() if c == cat]
+                if category_map
+                else list(trial_verdicts.keys())
+            )
             cat_completed = sum(1 for tid in cat_trial_ids if tid in trial_verdicts)
-            cat_passed = sum(1 for tid in cat_trial_ids if trial_verdicts.get(tid) == TrialVerdict.PASS)
+            cat_passed = sum(
+                1 for tid in cat_trial_ids if trial_verdicts.get(tid) == TrialVerdict.PASS
+            )
             cat_scores = [trial_scores[tid] for tid in cat_trial_ids if tid in trial_scores]
 
             cat_pr = (cat_passed / cat_completed) if cat_completed > 0 else 0.0
-            cat_l, cat_u = compute_wilson_score_interval(cat_passed, cat_completed, self.confidence_level) if cat_completed > 0 else (0.0, 0.0)
+            cat_l, cat_u = (
+                compute_wilson_score_interval(cat_passed, cat_completed, self.confidence_level)
+                if cat_completed > 0
+                else (0.0, 0.0)
+            )
             cat_mean = sum(cat_scores) / len(cat_scores) if cat_scores else 0.0
 
             cat_summaries[cat] = CategorySummary(

@@ -77,7 +77,9 @@ class MockAgentAdapter(AgentAdapter):
             cost_usd=0.001,
         )
 
-    async def resume(self, session: AgentSession, interruption: InterruptionResolution) -> AgentOutput:
+    async def resume(
+        self, session: AgentSession, interruption: InterruptionResolution
+    ) -> AgentOutput:
         return AgentOutput(
             output_type=AgentOutputType.FINISHED,
             turn_index=self._session_turns.get(session.session_id, 0),
@@ -87,7 +89,9 @@ class MockAgentAdapter(AgentAdapter):
     async def cancel(self, _session: AgentSession) -> None:
         pass
 
-    async def stream(self, session: AgentSession, message: AgentInput) -> AsyncIterator[AgentOutput]:
+    async def stream(
+        self, session: AgentSession, message: AgentInput
+    ) -> AsyncIterator[AgentOutput]:
         output = await self.send(session, message)
         yield output
 
@@ -106,7 +110,11 @@ class MockAgentAdapter(AgentAdapter):
             AgentOutput(
                 output_type=AgentOutputType.TOOL_CALLS,
                 turn_index=0,
-                tool_calls=[ToolCallRecord(tool_call_id="call-001", tool_name=tool_name, arguments=arguments)],
+                tool_calls=[
+                    ToolCallRecord(
+                        tool_call_id="call-001", tool_name=tool_name, arguments=arguments
+                    )
+                ],
                 prompt_tokens=40,
                 completion_tokens=25,
             ),

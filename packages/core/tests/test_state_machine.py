@@ -32,6 +32,7 @@ from arl.core.state_machine import (
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def make_machine(
     state: EvaluationRunState = EvaluationRunState.CREATED,
     version: int = 0,

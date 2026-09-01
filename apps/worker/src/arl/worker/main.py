@@ -217,7 +217,9 @@ class ExecutionWorker:
 
 
 async def main() -> None:
-    db_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://arl:arl_secret_dev_only@localhost:5432/arl_dev")
+    db_url = os.getenv(
+        "DATABASE_URL", "postgresql+asyncpg://arl:arl_secret_dev_only@localhost:5432/arl_dev"
+    )
     worker = ExecutionWorker(database_url=db_url)
 
     loop = asyncio.get_running_loop()

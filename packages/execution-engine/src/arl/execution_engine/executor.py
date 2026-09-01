@@ -69,7 +69,9 @@ class TrialExecutor:
     async def run(self) -> TrialExecutionResult:
         """Execute the trial to completion or budget exhaustion."""
         start_time = time.perf_counter()
-        logger.info("Starting execution of trial %s (seed=%d)", self.trial.id, self.trial.fault_seed)
+        logger.info(
+            "Starting execution of trial %s (seed=%d)", self.trial.id, self.trial.fault_seed
+        )
 
         # 1. Reset environment with deterministic seed and scenario overrides
         if hasattr(self.environment, "reset"):
@@ -79,7 +81,11 @@ class TrialExecutor:
             )
 
         # 2. Capture pre-trial world state snapshot
-        pre_snapshot_data = self.environment.export_world_state() if hasattr(self.environment, "export_world_state") else {}
+        pre_snapshot_data = (
+            self.environment.export_world_state()
+            if hasattr(self.environment, "export_world_state")
+            else {}
+        )
         pre_snapshot = WorldStateSnapshot(
             id=f"snap-pre-{self.trial.id}",
             trial_id=self.trial.id,
@@ -112,7 +118,9 @@ class TrialExecutor:
             run_id=self.trial.run_id,
             agent_version_id=getattr(self.trial, "agent_version_id", "agent-v1"),
             available_tools=available_tools,
-            initial_messages=[{"role": m.role, "content": m.content} for m in self.scenario.conversation],
+            initial_messages=[
+                {"role": m.role, "content": m.content} for m in self.scenario.conversation
+            ],
             max_turns=self.scenario.budgets.max_turns,
             max_tool_calls=self.scenario.budgets.max_tool_calls,
             max_duration_seconds=self.scenario.budgets.max_duration_seconds,
@@ -152,7 +160,11 @@ class TrialExecutor:
                 agent_input = AgentInput(
                     turn_index=turn_idx,
                     tool_results=current_tool_results,
-                    user_messages=[] if turn_idx > 0 else [{"role": m.role, "content": m.content} for m in self.scenario.conversation],
+                    user_messages=[]
+                    if turn_idx > 0
+                    else [
+                        {"role": m.role, "content": m.content} for m in self.scenario.conversation
+                    ],
                 )
 
                 turn_start_time = datetime.now(UTC)
@@ -170,7 +182,10 @@ class TrialExecutor:
                 total_cost_usd += cost
 
                 # Budget check: cost limit
-                if self.scenario.budgets.max_cost_usd is not None and total_cost_usd > self.scenario.budgets.max_cost_usd:
+                if (
+                    self.scenario.budgets.max_cost_usd is not None
+                    and total_cost_usd > self.scenario.budgets.max_cost_usd
+                ):
                     termination_reason = "cost_budget_exceeded"
                     completed_normally = False
                     break
@@ -222,10 +237,12 @@ class TrialExecutor:
                         )
                         recorded_tool_results.append(tool_res)
 
-                        current_tool_results.append({
-                            "tool_call_id": call_rec.tool_call_id,
-                            "output": tool_res.content,
-                        })
+                        current_tool_results.append(
+                            {
+                                "tool_call_id": call_rec.tool_call_id,
+                                "output": tool_res.content,
+                            }
+                        )
 
                 elif output.output_type in (AgentOutputType.FINISHED, AgentOutputType.TEXT):
                     # Agent completed turn or conversation
@@ -252,7 +269,11 @@ class TrialExecutor:
             await self.adapter.close_session(session)
 
         # 5. Capture post-trial world state snapshot
-        post_snapshot_data = self.environment.export_world_state() if hasattr(self.environment, "export_world_state") else {}
+        post_snapshot_data = (
+            self.environment.export_world_state()
+            if hasattr(self.environment, "export_world_state")
+            else {}
+        )
         post_snapshot = WorldStateSnapshot(
             id=f"snap-post-{self.trial.id}",
             trial_id=self.trial.id,

@@ -110,7 +110,9 @@ class FaultScheduler:
         for entry in self.fault_plan_entries:
             if entry.target != tool_name:
                 continue
-            if self._trigger_matches(entry.trigger, invocation_index, call_arguments, elapsed_seconds):
+            if self._trigger_matches(
+                entry.trigger, invocation_index, call_arguments, elapsed_seconds
+            ):
                 logger.debug(
                     "Fault scheduled: tool=%s invocation=%d type=%s seed=%d",
                     tool_name,
@@ -189,6 +191,7 @@ class FaultScheduler:
             event_id = ulid_factory()
         else:
             import uuid
+
             event_id = str(uuid.uuid4())
 
         domain_behaviour = DomainFaultBehaviour(

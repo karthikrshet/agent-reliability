@@ -55,11 +55,11 @@ class GraderCategory(str, enum.Enum):
 class FindingSeverity(str, enum.Enum):
     """Severity levels for grader findings."""
 
-    CRITICAL = "critical"   # Triggers NOT_READY; e.g. forbidden effect, isolation violation
-    HIGH = "high"           # Strong signal for NOT_READY
-    MEDIUM = "medium"       # Informs score but may not block readiness
-    LOW = "low"             # Informational
-    INFO = "info"           # Trace-level detail
+    CRITICAL = "critical"  # Triggers NOT_READY; e.g. forbidden effect, isolation violation
+    HIGH = "high"  # Strong signal for NOT_READY
+    MEDIUM = "medium"  # Informs score but may not block readiness
+    LOW = "low"  # Informational
+    INFO = "info"  # Trace-level detail
 
 
 class ReadinessVerdict(str, enum.Enum):
@@ -325,7 +325,9 @@ class AuditEvent(BaseModel):
     model_config = {"frozen": True}
 
     id: str
-    event_type: str = Field(..., description="e.g. run.created, permission.changed, report.exported")
+    event_type: str = Field(
+        ..., description="e.g. run.created, permission.changed, report.exported"
+    )
     actor_id: str = Field(..., description="User or service that performed the action")
     actor_type: str = Field(..., description="user | service | worker | system")
     resource_type: str = Field(..., description="e.g. EvaluationRun, Report, Project")

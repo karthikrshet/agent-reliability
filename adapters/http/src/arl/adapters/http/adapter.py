@@ -42,10 +42,10 @@ BLOCKED_NETWORKS = [
     ipaddress.ip_network("172.16.0.0/12"),
     ipaddress.ip_network("192.168.0.0/16"),
     ipaddress.ip_network("169.254.0.0/16"),  # Link-local / Cloud metadata
-    ipaddress.ip_network("127.0.0.0/8"),      # Loopback
-    ipaddress.ip_network("::1/128"),          # IPv6 loopback
-    ipaddress.ip_network("fc00::/7"),         # IPv6 unique local
-    ipaddress.ip_network("fe80::/10"),        # IPv6 link-local
+    ipaddress.ip_network("127.0.0.0/8"),  # Loopback
+    ipaddress.ip_network("::1/128"),  # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),  # IPv6 unique local
+    ipaddress.ip_network("fe80::/10"),  # IPv6 link-local
 ]
 
 
@@ -209,7 +209,11 @@ class HttpAgentAdapter(AgentAdapter):
             )
 
         raw_type = data.get("type", "tool_calls" if tool_calls else "text")
-        output_type = AgentOutputType(raw_type) if raw_type in AgentOutputType._value2member_map_ else AgentOutputType.TEXT
+        output_type = (
+            AgentOutputType(raw_type)
+            if raw_type in AgentOutputType._value2member_map_
+            else AgentOutputType.TEXT
+        )
 
         return AgentOutput(
             output_type=output_type,
@@ -223,7 +227,9 @@ class HttpAgentAdapter(AgentAdapter):
             model_name=data.get("model"),
         )
 
-    async def resume(self, session: AgentSession, interruption: InterruptionResolution) -> AgentOutput:
+    async def resume(
+        self, session: AgentSession, interruption: InterruptionResolution
+    ) -> AgentOutput:
         client = await self._get_client()
         payload = {
             "session_id": session.session_id,
@@ -242,14 +248,20 @@ class HttpAgentAdapter(AgentAdapter):
     async def cancel(self, session: AgentSession) -> None:
         client = await self._get_client()
         with contextlib.suppress(Exception):
-            await client.post(f"{self.endpoint_url}/cancel", json={"session_id": session.session_id})
+            await client.post(
+                f"{self.endpoint_url}/cancel", json={"session_id": session.session_id}
+            )
 
-    async def stream(self, session: AgentSession, message: AgentInput) -> AsyncIterator[AgentOutput]:
+    async def stream(
+        self, session: AgentSession, message: AgentInput
+    ) -> AsyncIterator[AgentOutput]:
         output = await self.send(session, message)
         yield output
 
     async def close_session(self, session: AgentSession) -> None:
         if self._client and not self._client.is_closed:
             with contextlib.suppress(Exception):
-                await self._client.post(f"{self.endpoint_url}/close", json={"session_id": session.session_id})
+                await self._client.post(
+                    f"{self.endpoint_url}/close", json={"session_id": session.session_id}
+                )
             await self._client.aclose()

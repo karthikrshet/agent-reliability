@@ -103,8 +103,7 @@ def _validate_against_schema(
 
     if errors:
         error_messages = [
-            f"[{'/'.join(str(p) for p in e.path) or 'root'}] {e.message}"
-            for e in errors
+            f"[{'/'.join(str(p) for p in e.path) or 'root'}] {e.message}" for e in errors
         ]
         raise ScenarioValidationError(path=path, errors=error_messages)
 
@@ -261,8 +260,7 @@ def validate_scenario_file(path: Path | str) -> list[str]:
     validator = jsonschema.Draft202012Validator(schema)
     json_errors = sorted(validator.iter_errors(raw_data), key=lambda e: list(e.path))
     errors.extend(
-        f"[{'/'.join(str(p) for p in e.path) or 'root'}] {e.message}"
-        for e in json_errors
+        f"[{'/'.join(str(p) for p in e.path) or 'root'}] {e.message}" for e in json_errors
     )
 
     if not errors:

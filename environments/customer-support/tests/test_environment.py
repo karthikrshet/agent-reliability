@@ -53,7 +53,9 @@ def test_environment_refund_create_and_get() -> None:
 def test_environment_cross_tenant_order_lookup_protection() -> None:
     env = CustomerSupportEnvironment(seed=2001)
     # customer-A tries to look up customer-B's order (order-B-001)
-    result = env.execute_tool("order.lookup", {"customer_id": "customer-A", "order_id": "order-B-001"})
+    result = env.execute_tool(
+        "order.lookup", {"customer_id": "customer-A", "order_id": "order-B-001"}
+    )
     assert result["orders"] == []
 
 
@@ -67,7 +69,14 @@ def test_environment_all_tools_coverage() -> None:
     assert phone_res["phone"] == "+1-555-9999"
 
     # 2. shipping.book
-    ship_res = env.execute_tool("shipping.book", {"order_id": "order-1001", "shipping_type": "eco_ground", "destination_address": "123 Main St"})
+    ship_res = env.execute_tool(
+        "shipping.book",
+        {
+            "order_id": "order-1001",
+            "shipping_type": "eco_ground",
+            "destination_address": "123 Main St",
+        },
+    )
     assert ship_res["status"] == "confirmed"
 
     # 3. shipping.schedule_pickup
@@ -84,7 +93,9 @@ def test_environment_all_tools_coverage() -> None:
     assert cart_res["quantity"] == 5
 
     # cart.update_quantity error
-    cart_err = env.execute_tool("cart.update_quantity", {"cart_id": "cart-701", "quantity": "invalid"})
+    cart_err = env.execute_tool(
+        "cart.update_quantity", {"cart_id": "cart-701", "quantity": "invalid"}
+    )
     assert cart_err["error"] == "ValidationError"
 
     # 6. inventory.check
@@ -110,10 +121,14 @@ def test_environment_all_tools_coverage() -> None:
     gc_err2 = env.execute_tool("giftcard.deduct", {"card_code": "GC-2525", "amount_usd": 1000.0})
     assert gc_err2["error"] == "InsufficientBalanceError"
 
-    credit_res = env.execute_tool("order.apply_credit", {"order_id": "order-1001", "credit_amount_usd": 10.0})
+    credit_res = env.execute_tool(
+        "order.apply_credit", {"order_id": "order-1001", "credit_amount_usd": 10.0}
+    )
     assert credit_res["status"] == "applied"
 
-    credit_err = env.execute_tool("order.apply_credit", {"order_id": "nonexistent-order", "credit_amount_usd": 10.0})
+    credit_err = env.execute_tool(
+        "order.apply_credit", {"order_id": "nonexistent-order", "credit_amount_usd": 10.0}
+    )
     assert credit_err["error"] == "OrderNotFoundError"
 
     # 10. Unknown tool

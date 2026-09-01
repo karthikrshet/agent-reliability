@@ -5,6 +5,7 @@ Revises: None
 Create Date: 2026-09-01 20:00:00.000000
 
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -38,7 +39,12 @@ def upgrade() -> None:
     op.create_table(
         "agent_definitions",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("project_id", sa.String(36), sa.ForeignKey("projects.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "project_id",
+            sa.String(36),
+            sa.ForeignKey("projects.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("name", sa.String(120), nullable=False),
         sa.Column("framework", sa.String(60), nullable=False),
         sa.Column("description", sa.Text(), nullable=False, server_default=""),
@@ -51,7 +57,12 @@ def upgrade() -> None:
     op.create_table(
         "agent_versions",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("agent_definition_id", sa.String(36), sa.ForeignKey("agent_definitions.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "agent_definition_id",
+            sa.String(36),
+            sa.ForeignKey("agent_definitions.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("version_tag", sa.String(64), nullable=False),
         sa.Column("system_prompt_hash", sa.String(64), nullable=True),
         sa.Column("endpoint_url", sa.String(500), nullable=True),
@@ -65,7 +76,12 @@ def upgrade() -> None:
     op.create_table(
         "scenarios",
         sa.Column("id", sa.String(100), primary_key=True),
-        sa.Column("project_id", sa.String(36), sa.ForeignKey("projects.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "project_id",
+            sa.String(36),
+            sa.ForeignKey("projects.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("name", sa.String(200), nullable=False),
         sa.Column("category", sa.String(60), nullable=False),
         sa.Column("description", sa.Text(), nullable=False, server_default=""),
@@ -79,7 +95,12 @@ def upgrade() -> None:
     op.create_table(
         "scenario_versions",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("scenario_id", sa.String(100), sa.ForeignKey("scenarios.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "scenario_id",
+            sa.String(100),
+            sa.ForeignKey("scenarios.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("version_tag", sa.String(64), nullable=False),
         sa.Column("schema_version", sa.String(16), nullable=False),
         sa.Column("environment_name", sa.String(100), nullable=False),
@@ -97,7 +118,12 @@ def upgrade() -> None:
     op.create_table(
         "evaluation_runs",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("project_id", sa.String(36), sa.ForeignKey("projects.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "project_id",
+            sa.String(36),
+            sa.ForeignKey("projects.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("state", sa.String(40), nullable=False, server_default="CREATED"),
         sa.Column("state_version", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("run_seed", sa.Integer(), nullable=False),
@@ -119,9 +145,21 @@ def upgrade() -> None:
     op.create_table(
         "trials",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("run_id", sa.String(36), sa.ForeignKey("evaluation_runs.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("agent_version_id", sa.String(36), sa.ForeignKey("agent_versions.id"), nullable=False),
-        sa.Column("scenario_version_id", sa.String(36), sa.ForeignKey("scenario_versions.id"), nullable=False),
+        sa.Column(
+            "run_id",
+            sa.String(36),
+            sa.ForeignKey("evaluation_runs.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "agent_version_id", sa.String(36), sa.ForeignKey("agent_versions.id"), nullable=False
+        ),
+        sa.Column(
+            "scenario_version_id",
+            sa.String(36),
+            sa.ForeignKey("scenario_versions.id"),
+            nullable=False,
+        ),
         sa.Column("trial_index", sa.Integer(), nullable=False),
         sa.Column("trial_seed", sa.Integer(), nullable=False),
         sa.Column("state", sa.String(40), nullable=False, server_default="PENDING"),
@@ -146,7 +184,12 @@ def upgrade() -> None:
     op.create_table(
         "tool_calls",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("trial_id", sa.String(36), sa.ForeignKey("trials.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "trial_id",
+            sa.String(36),
+            sa.ForeignKey("trials.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("tool_name", sa.String(120), nullable=False),
         sa.Column("arguments", JSONB, nullable=False),
         sa.Column("idempotency_key", sa.String(120), nullable=True),
@@ -163,7 +206,13 @@ def upgrade() -> None:
     op.create_table(
         "tool_results",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("tool_call_id", sa.String(36), sa.ForeignKey("tool_calls.id", ondelete="CASCADE"), unique=True, nullable=False),
+        sa.Column(
+            "tool_call_id",
+            sa.String(36),
+            sa.ForeignKey("tool_calls.id", ondelete="CASCADE"),
+            unique=True,
+            nullable=False,
+        ),
         sa.Column("content", JSONB, nullable=False),
         sa.Column("is_error", sa.Boolean(), nullable=False, server_default="false"),
         sa.Column("error_type", sa.String(100), nullable=True),
@@ -174,7 +223,12 @@ def upgrade() -> None:
     op.create_table(
         "fault_events",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("trial_id", sa.String(36), sa.ForeignKey("trials.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "trial_id",
+            sa.String(36),
+            sa.ForeignKey("trials.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("tool_call_id", sa.String(36), nullable=True),
         sa.Column("fault_type", sa.String(80), nullable=False),
         sa.Column("target_tool", sa.String(120), nullable=False),
@@ -189,7 +243,12 @@ def upgrade() -> None:
     op.create_table(
         "world_state_snapshots",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("trial_id", sa.String(36), sa.ForeignKey("trials.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "trial_id",
+            sa.String(36),
+            sa.ForeignKey("trials.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("phase", sa.String(40), nullable=False),
         sa.Column("state_payload", JSONB, nullable=False),
         sa.Column("captured_at", sa.DateTime(timezone=True), nullable=False),
@@ -200,7 +259,12 @@ def upgrade() -> None:
     op.create_table(
         "grader_results",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("trial_id", sa.String(36), sa.ForeignKey("trials.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "trial_id",
+            sa.String(36),
+            sa.ForeignKey("trials.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("grader_version_id", sa.String(64), nullable=False),
         sa.Column("category", sa.String(60), nullable=False),
         sa.Column("grader_type", sa.String(40), nullable=False),
@@ -219,8 +283,18 @@ def upgrade() -> None:
     op.create_table(
         "security_findings",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("trial_id", sa.String(36), sa.ForeignKey("trials.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("run_id", sa.String(36), sa.ForeignKey("evaluation_runs.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "trial_id",
+            sa.String(36),
+            sa.ForeignKey("trials.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "run_id",
+            sa.String(36),
+            sa.ForeignKey("evaluation_runs.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("owasp_category", sa.String(80), nullable=False),
         sa.Column("severity", sa.String(20), nullable=False),
         sa.Column("confidence", sa.String(20), nullable=False),
@@ -238,7 +312,12 @@ def upgrade() -> None:
     op.create_table(
         "reports",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("run_id", sa.String(36), sa.ForeignKey("evaluation_runs.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "run_id",
+            sa.String(36),
+            sa.ForeignKey("evaluation_runs.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("project_id", sa.String(36), nullable=False),
         sa.Column("verdict", sa.String(40), nullable=False),
         sa.Column("overall_score", sa.Float(), nullable=True),

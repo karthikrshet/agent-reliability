@@ -61,19 +61,30 @@ class LeaseManager:
             trial.state = "RUNNING"
             trial.lease_expires_at = lease_expiration
             await session.commit()
-            logger.info("Worker %s acquired lease on trial %s until %s", self.worker_id, trial.id, lease_expiration)
+            logger.info(
+                "Worker %s acquired lease on trial %s until %s",
+                self.worker_id,
+                trial.id,
+                lease_expiration,
+            )
             return trial
 
         return None
 
-    async def renew_lease(self, session: AsyncSession, trial_id: str, extension_seconds: int | None = None) -> bool:
+    async def renew_lease(
+        self, session: AsyncSession, trial_id: str, extension_seconds: int | None = None
+    ) -> bool:
         """Extend lease expiration for an actively running trial."""
         secs = extension_seconds or self.default_lease_seconds
         new_expiry = datetime.now(UTC) + timedelta(seconds=secs)
 
         stmt = (
             update(TrialModel)
-            .where(TrialModel.id == trial_id, TrialModel.worker_id == self.worker_id, TrialModel.state == "RUNNING")
+            .where(
+                TrialModel.id == trial_id,
+                TrialModel.worker_id == self.worker_id,
+                TrialModel.state == "RUNNING",
+            )
             .values(lease_expires_at=new_expiry)
         )
         result = await session.execute(stmt)
@@ -110,14 +121,15 @@ class LeaseManager:
         )
         await session.execute(stmt)
         await session.commit()
-        logger.info("Worker %s released lease on trial %s (state=%s)", self.worker_id, trial_id, new_state)
+        logger.info(
+            "Worker %s released lease on trial %s (state=%s)", self.worker_id, trial_id, new_state
+        )
 
     async def reclaim_expired_leases(self, session: AsyncSession) -> list[str]:
         """Reset running trials with expired leases back to PENDING."""
         now = datetime.now(UTC)
-        stmt = (
-            select(TrialModel.id)
-            .where(TrialModel.state == "RUNNING", TrialModel.lease_expires_at < now)
+        stmt = select(TrialModel.id).where(
+            TrialModel.state == "RUNNING", TrialModel.lease_expires_at < now
         )
         result = await session.execute(stmt)
         expired_ids = list(result.scalars().all())
@@ -130,6 +142,10 @@ class LeaseManager:
             )
             await session.execute(reset_stmt)
             await session.commit()
-            logger.warning("Reclaimed %d orphaned trials with expired leases: %s", len(expired_ids), expired_ids)
+            logger.warning(
+                "Reclaimed %d orphaned trials with expired leases: %s",
+                len(expired_ids),
+                expired_ids,
+            )
 
         return expired_ids

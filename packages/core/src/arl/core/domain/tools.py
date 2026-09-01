@@ -27,8 +27,8 @@ class SideEffectClassification(str, enum.Enum):
     and which require world-state verification.
     """
 
-    NONE = "none"          # read-only (lookups, searches)
-    REVERSIBLE = "reversible"    # effect can be undone (e.g. cancel order)
+    NONE = "none"  # read-only (lookups, searches)
+    REVERSIBLE = "reversible"  # effect can be undone (e.g. cancel order)
     IRREVERSIBLE = "irreversible"  # effect cannot be undone (e.g. send email)
 
 

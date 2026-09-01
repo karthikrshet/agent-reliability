@@ -89,7 +89,7 @@ def test_fault_not_injected_on_non_matching_invocation() -> None:
 
     assert scheduler.check("refund.create") is None  # invocation 1
     assert scheduler.check("refund.create") is None  # invocation 2
-    result = scheduler.check("refund.create")        # invocation 3
+    result = scheduler.check("refund.create")  # invocation 3
     assert result is not None
 
 
@@ -133,7 +133,9 @@ def test_argument_contains_trigger_matches() -> None:
     scheduler = make_scheduler(entries=[entry])
 
     # Matching arguments
-    result = scheduler.check("refund.create", call_arguments={"order_id": "order-999", "amount": 10.0})
+    result = scheduler.check(
+        "refund.create", call_arguments={"order_id": "order-999", "amount": 10.0}
+    )
     assert result is not None
 
 
@@ -216,7 +218,7 @@ def test_different_seeds_may_differ() -> None:
     result_a = sched_a.check("tool.x")
     result_b = sched_b.check("tool.x")
     assert result_a is not None  # invocation 1 triggers entry_a
-    assert result_b is None      # invocation 1 does NOT trigger entry_b (needs 2)
+    assert result_b is None  # invocation 1 does NOT trigger entry_b (needs 2)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -242,6 +244,7 @@ def test_make_fault_event_returns_correct_fault_type() -> None:
         tool_call_id="tc-001",
     )
     from arl.core.domain.faults import FaultType
+
     assert event.fault_type == FaultType.TIMEOUT_AFTER_EXECUTION
     assert event.behaviour.side_effect_committed is True
     assert event.trial_id == "trial-evt-001"
@@ -260,6 +263,7 @@ def test_make_fault_event_is_immutable() -> None:
 
     event = scheduler.make_fault_event(scheduled=scheduled, tool_name="refund.create")
     from pydantic import ValidationError
+
     with pytest.raises((AttributeError, TypeError, ValidationError)):
         event.fault_type = None  # type: ignore[misc]
 

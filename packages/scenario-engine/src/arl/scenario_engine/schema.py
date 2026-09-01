@@ -88,7 +88,10 @@ SCENARIO_JSON_SCHEMA_V1: dict[str, Any] = {
             "properties": {
                 "name": {"type": "string", "minLength": 1},
                 "version": {"type": "string", "minLength": 1},
-                "seed": {"type": "integer", "description": "Deterministic seed for data generation"},
+                "seed": {
+                    "type": "integer",
+                    "description": "Deterministic seed for data generation",
+                },
             },
         },
         "initial_state": {
@@ -386,8 +389,7 @@ class ParsedScenario(BaseModel):
     def validate_schema_version(cls, v: str) -> str:
         if v not in SUPPORTED_SCHEMA_VERSIONS:
             msg = (
-                f"Unsupported schema_version {v!r}. "
-                f"Supported: {sorted(SUPPORTED_SCHEMA_VERSIONS)}"
+                f"Unsupported schema_version {v!r}. Supported: {sorted(SUPPORTED_SCHEMA_VERSIONS)}"
             )
             raise ValueError(msg)
         return v

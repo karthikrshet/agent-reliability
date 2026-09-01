@@ -94,7 +94,9 @@ async def test_trial_executor_turns_budget_exceeded() -> None:
         AgentOutput(
             output_type=AgentOutputType.TOOL_CALLS,
             turn_index=i,
-            tool_calls=[ToolCallRecord(tool_call_id=f"tc-{i}", tool_name="loyalty.get_points", arguments={})],
+            tool_calls=[
+                ToolCallRecord(tool_call_id=f"tc-{i}", tool_name="loyalty.get_points", arguments={})
+            ],
         )
         for i in range(10)
     ]

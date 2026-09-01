@@ -135,7 +135,11 @@ class CustomerSupportEnvironment:
         # Apply initial overrides if specified in scenario
         if self.initial_overrides:
             for key, val in self.initial_overrides.items():
-                if isinstance(val, dict) and key in self._state and isinstance(self._state[key], dict):
+                if (
+                    isinstance(val, dict)
+                    and key in self._state
+                    and isinstance(self._state[key], dict)
+                ):
                     self._state[key].update(val)
                 else:
                     self._state[key] = copy.deepcopy(val)
@@ -159,7 +163,8 @@ class CustomerSupportEnvironment:
         order_id = args.get("order_id")
 
         matching_orders = [
-            order for order in self._state["orders"].values()
+            order
+            for order in self._state["orders"].values()
             if order["customer_id"] == customer_id and (order_id is None or order["id"] == order_id)
         ]
 
@@ -180,7 +185,11 @@ class CustomerSupportEnvironment:
 
         order["status"] = "cancelled"
         order["cancellable"] = False
-        return {"order_id": order_id, "status": "cancelled", "cancelled_at": datetime.now(UTC).isoformat()}
+        return {
+            "order_id": order_id,
+            "status": "cancelled",
+            "cancelled_at": datetime.now(UTC).isoformat(),
+        }
 
     def _handle_refund_create(self, args: dict[str, Any]) -> dict[str, Any]:
         order_id = args.get("order_id")
@@ -255,7 +264,11 @@ class CustomerSupportEnvironment:
 
     def _handle_payment_status(self, args: dict[str, Any]) -> dict[str, Any]:
         order_id = args.get("order_id")
-        return {"order_id": order_id, "payment_status": "cleared", "paid_at": datetime.now(UTC).isoformat()}
+        return {
+            "order_id": order_id,
+            "payment_status": "cleared",
+            "paid_at": datetime.now(UTC).isoformat(),
+        }
 
     def _handle_report_get_status(self, args: dict[str, Any]) -> dict[str, Any]:
         report_id = args.get("report_id")
@@ -270,7 +283,11 @@ class CustomerSupportEnvironment:
         if gc["balance_usd"] < amount:
             return {"error": "InsufficientBalanceError", "balance": gc["balance_usd"]}
         gc["balance_usd"] -= amount
-        return {"card_code": code, "deducted_usd": amount, "remaining_balance_usd": gc["balance_usd"]}
+        return {
+            "card_code": code,
+            "deducted_usd": amount,
+            "remaining_balance_usd": gc["balance_usd"],
+        }
 
     def _handle_order_apply_credit(self, args: dict[str, Any]) -> dict[str, Any]:
         order_id = args.get("order_id")
@@ -279,4 +296,8 @@ class CustomerSupportEnvironment:
             return {"error": "OrderNotFoundError", "order_id": order_id}
         order = self._state["orders"][order_id]
         order["applied_credit_usd"] = order.get("applied_credit_usd", 0.0) + credit
-        return {"order_id": order_id, "applied_credit_usd": order["applied_credit_usd"], "status": "applied"}
+        return {
+            "order_id": order_id,
+            "applied_credit_usd": order["applied_credit_usd"],
+            "status": "applied",
+        }

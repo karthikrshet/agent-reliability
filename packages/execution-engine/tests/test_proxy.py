@@ -99,12 +99,20 @@ async def test_proxy_all_fault_behaviours() -> None:
         environment=env,
         tool_definitions=env.tools,
         fault_scheduler=FaultScheduler(
-            fault_plan_entries=[FaultPlanEntrySpec(target="order.lookup", trigger=FaultTriggerSpec(invocation=1), behaviour=FaultBehaviourSpec(type="http_503", response_body="Maintenance"))],
+            fault_plan_entries=[
+                FaultPlanEntrySpec(
+                    target="order.lookup",
+                    trigger=FaultTriggerSpec(invocation=1),
+                    behaviour=FaultBehaviourSpec(type="http_503", response_body="Maintenance"),
+                )
+            ],
             trial_fault_seed=1,
             trial_id="t",
         ),
     )
-    res_503, _ = await p_503.execute(tool_call_id="c1", tool_name="order.lookup", arguments={"customer_id": "c1"})
+    res_503, _ = await p_503.execute(
+        tool_call_id="c1", tool_name="order.lookup", arguments={"customer_id": "c1"}
+    )
     assert res_503.error_code == "HTTP503"
 
     # 2. http_429 rate limit
@@ -112,38 +120,72 @@ async def test_proxy_all_fault_behaviours() -> None:
         environment=env,
         tool_definitions=env.tools,
         fault_scheduler=FaultScheduler(
-            fault_plan_entries=[FaultPlanEntrySpec(target="order.lookup", trigger=FaultTriggerSpec(invocation=1), behaviour=FaultBehaviourSpec(type="http_429", retry_after_seconds=3))],
+            fault_plan_entries=[
+                FaultPlanEntrySpec(
+                    target="order.lookup",
+                    trigger=FaultTriggerSpec(invocation=1),
+                    behaviour=FaultBehaviourSpec(type="http_429", retry_after_seconds=3),
+                )
+            ],
             trial_fault_seed=2,
             trial_id="t",
         ),
     )
-    res_429, _ = await p_429.execute(tool_call_id="c2", tool_name="order.lookup", arguments={"customer_id": "c1"})
+    res_429, _ = await p_429.execute(
+        tool_call_id="c2", tool_name="order.lookup", arguments={"customer_id": "c1"}
+    )
     assert res_429.error_code == "HTTP429"
 
     # 3. dns_failure & connection_refused & dropped_response
-    for ftype, err_code in [("dns_failure", "DNSLookupFailure"), ("connection_refused", "ConnectionRefused"), ("dropped_response", "ConnectionReset"), ("timeout_before_execution", "TimeoutError")]:
+    for ftype, err_code in [
+        ("dns_failure", "DNSLookupFailure"),
+        ("connection_refused", "ConnectionRefused"),
+        ("dropped_response", "ConnectionReset"),
+        ("timeout_before_execution", "TimeoutError"),
+    ]:
         p = ToolProxy(
             environment=env,
             tool_definitions=env.tools,
             fault_scheduler=FaultScheduler(
-                fault_plan_entries=[FaultPlanEntrySpec(target="order.lookup", trigger=FaultTriggerSpec(invocation=1), behaviour=FaultBehaviourSpec(type=ftype))],
+                fault_plan_entries=[
+                    FaultPlanEntrySpec(
+                        target="order.lookup",
+                        trigger=FaultTriggerSpec(invocation=1),
+                        behaviour=FaultBehaviourSpec(type=ftype),
+                    )
+                ],
                 trial_fault_seed=3,
                 trial_id="t",
             ),
         )
-        res, _ = await p.execute(tool_call_id="c3", tool_name="order.lookup", arguments={"customer_id": "c1"})
+        res, _ = await p.execute(
+            tool_call_id="c3", tool_name="order.lookup", arguments={"customer_id": "c1"}
+        )
         assert res.error_code == err_code
 
     # 4. malformed_json & schema_invalid_result & stale_result & partial_success
-    for ftype, is_err in [("malformed_json", True), ("schema_invalid_result", False), ("stale_result", False), ("partial_success", False)]:
+    for ftype, is_err in [
+        ("malformed_json", True),
+        ("schema_invalid_result", False),
+        ("stale_result", False),
+        ("partial_success", False),
+    ]:
         p = ToolProxy(
             environment=env,
             tool_definitions=env.tools,
             fault_scheduler=FaultScheduler(
-                fault_plan_entries=[FaultPlanEntrySpec(target="order.lookup", trigger=FaultTriggerSpec(invocation=1), behaviour=FaultBehaviourSpec(type=ftype, response_body='{"test": 1}'))],
+                fault_plan_entries=[
+                    FaultPlanEntrySpec(
+                        target="order.lookup",
+                        trigger=FaultTriggerSpec(invocation=1),
+                        behaviour=FaultBehaviourSpec(type=ftype, response_body='{"test": 1}'),
+                    )
+                ],
                 trial_fault_seed=4,
                 trial_id="t",
             ),
         )
-        res, _ = await p.execute(tool_call_id="c4", tool_name="order.lookup", arguments={"customer_id": "c1"})
+        res, _ = await p.execute(
+            tool_call_id="c4", tool_name="order.lookup", arguments={"customer_id": "c1"}
+        )
         assert res.is_error == is_err

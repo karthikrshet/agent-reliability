@@ -30,7 +30,9 @@ class JudgeEvaluation(BaseModel):
 
     passed: bool = Field(..., description="Whether the response meets the qualitative criteria")
     score: float = Field(..., ge=0.0, le=1.0, description="Normalized score 0.0 - 1.0")
-    confidence: float = Field(default=0.9, ge=0.0, le=1.0, description="Judge confidence in the assessment")
+    confidence: float = Field(
+        default=0.9, ge=0.0, le=1.0, description="Judge confidence in the assessment"
+    )
     reasoning: str = Field(..., description="Chain of thought explaining the score and verdict")
     rubric_scores: dict[str, float] = Field(
         default_factory=dict,
@@ -112,7 +114,9 @@ class LLMJudge:
             )
 
         # Basic quality indicators
-        has_politeness = any(w in text.lower() for w in ["thank", "please", "glad", "help", "sorry", "apolog"])
+        has_politeness = any(
+            w in text.lower() for w in ["thank", "please", "glad", "help", "sorry", "apolog"]
+        )
         length_ok = len(text) >= 15
         clarity_score = 1.0 if (length_ok and has_politeness) else (0.7 if length_ok else 0.4)
         helpfulness_score = 0.9 if length_ok else 0.3

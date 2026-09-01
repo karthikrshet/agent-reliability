@@ -84,8 +84,22 @@ def base_trial():
 async def test_effect_grader_success_and_forbidden_tool_veto(base_trial, base_scenario) -> None:
     grader = EffectMatchGrader()
 
-    tc1 = ToolCall(id="tc-1", trial_id="t-grade-1", agent_turn_id="turn-1", sequence_index=0, tool_name="order.lookup", call_arguments={"customer_id": "customer-101"})
-    tc2 = ToolCall(id="tc-2", trial_id="t-grade-1", agent_turn_id="turn-2", sequence_index=1, tool_name="order.cancel", call_arguments={"order_id": "order-1042"})
+    tc1 = ToolCall(
+        id="tc-1",
+        trial_id="t-grade-1",
+        agent_turn_id="turn-1",
+        sequence_index=0,
+        tool_name="order.lookup",
+        call_arguments={"customer_id": "customer-101"},
+    )
+    tc2 = ToolCall(
+        id="tc-2",
+        trial_id="t-grade-1",
+        agent_turn_id="turn-2",
+        sequence_index=1,
+        tool_name="order.cancel",
+        call_arguments={"order_id": "order-1042"},
+    )
 
     snapshot_ok = WorldStateSnapshot(
         id="snap-ok",
@@ -123,7 +137,14 @@ async def test_effect_grader_success_and_forbidden_tool_veto(base_trial, base_sc
     assert result.is_critical_failure is False
 
     # Forbidden tool executed -> CRITICAL_FAIL
-    tc_forb = ToolCall(id="tc-forb", trial_id="t-grade-1", agent_turn_id="turn-3", sequence_index=2, tool_name="customer.delete", call_arguments={})
+    tc_forb = ToolCall(
+        id="tc-forb",
+        trial_id="t-grade-1",
+        agent_turn_id="turn-3",
+        sequence_index=2,
+        tool_name="customer.delete",
+        call_arguments={},
+    )
     res_forb = TrialExecutionResult(
         trial_id="t-grade-1",
         completed_normally=True,
@@ -148,7 +169,14 @@ async def test_effect_grader_success_and_forbidden_tool_veto(base_trial, base_sc
 async def test_effect_grader_forbidden_path_veto(base_trial, base_scenario) -> None:
     grader = EffectMatchGrader()
 
-    tc1 = ToolCall(id="tc-1", trial_id="t-grade-1", agent_turn_id="turn-1", sequence_index=0, tool_name="order.lookup", call_arguments={"customer_id": "customer-101"})
+    tc1 = ToolCall(
+        id="tc-1",
+        trial_id="t-grade-1",
+        agent_turn_id="turn-1",
+        sequence_index=0,
+        tool_name="order.lookup",
+        call_arguments={"customer_id": "customer-101"},
+    )
 
     # Post snapshot where forbidden order 1001 was cancelled
     bad_snapshot = WorldStateSnapshot(
@@ -220,7 +248,13 @@ async def test_budget_grader(base_trial, base_scenario) -> None:
         completed_normally=False,
         termination_reason="turns_budget_exceeded",
         turns=[
-            AgentTurn(id=f"t{i}", trial_id="t-grade-1", turn_index=i, agent_version_id="v1", started_at=datetime.now(UTC))
+            AgentTurn(
+                id=f"t{i}",
+                trial_id="t-grade-1",
+                turn_index=i,
+                agent_version_id="v1",
+                started_at=datetime.now(UTC),
+            )
             for i in range(6)
         ],
         tool_calls=[],
@@ -240,8 +274,22 @@ async def test_budget_grader(base_trial, base_scenario) -> None:
 async def test_deterministic_trial_evaluator_all_pass(base_trial, base_scenario) -> None:
     evaluator = DeterministicTrialEvaluator()
 
-    tc1 = ToolCall(id="tc-1", trial_id="t-grade-1", agent_turn_id="turn-1", sequence_index=0, tool_name="order.lookup", call_arguments={"customer_id": "customer-101"})
-    tc2 = ToolCall(id="tc-2", trial_id="t-grade-1", agent_turn_id="turn-2", sequence_index=1, tool_name="order.cancel", call_arguments={"order_id": "order-1042"})
+    tc1 = ToolCall(
+        id="tc-1",
+        trial_id="t-grade-1",
+        agent_turn_id="turn-1",
+        sequence_index=0,
+        tool_name="order.lookup",
+        call_arguments={"customer_id": "customer-101"},
+    )
+    tc2 = ToolCall(
+        id="tc-2",
+        trial_id="t-grade-1",
+        agent_turn_id="turn-2",
+        sequence_index=1,
+        tool_name="order.cancel",
+        call_arguments={"order_id": "order-1042"},
+    )
 
     snapshot_ok = WorldStateSnapshot(
         id="snap-ok",
@@ -264,8 +312,20 @@ async def test_deterministic_trial_evaluator_all_pass(base_trial, base_scenario)
         completed_normally=True,
         termination_reason="completed",
         turns=[
-            AgentTurn(id="t1", trial_id="t-grade-1", turn_index=0, agent_version_id="v1", started_at=datetime.now(UTC)),
-            AgentTurn(id="t2", trial_id="t-grade-1", turn_index=1, agent_version_id="v1", started_at=datetime.now(UTC)),
+            AgentTurn(
+                id="t1",
+                trial_id="t-grade-1",
+                turn_index=0,
+                agent_version_id="v1",
+                started_at=datetime.now(UTC),
+            ),
+            AgentTurn(
+                id="t2",
+                trial_id="t-grade-1",
+                turn_index=1,
+                agent_version_id="v1",
+                started_at=datetime.now(UTC),
+            ),
         ],
         tool_calls=[tc1, tc2],
         tool_results=[],

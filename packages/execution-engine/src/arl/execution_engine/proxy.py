@@ -34,8 +34,7 @@ logger = logging.getLogger(__name__)
 class EnvironmentProtocol(Protocol):
     """Protocol satisfied by sandboxed test environments."""
 
-    def execute_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        ...
+    def execute_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]: ...
 
 
 class ToolProxy:
@@ -115,7 +114,11 @@ class ToolProxy:
 
         _duration_ms = int((time.perf_counter() - start_time) * 1000)
 
-        err_msg = result_payload.get("message") or result_payload.get("detail") if isinstance(result_payload, dict) else None
+        err_msg = (
+            result_payload.get("message") or result_payload.get("detail")
+            if isinstance(result_payload, dict)
+            else None
+        )
 
         tool_result = ToolResult(
             id=f"res-{tool_call_id}",
@@ -140,7 +143,9 @@ class ToolProxy:
             validator = jsonschema.Draft202012Validator(param_schema)
             errors = list(validator.iter_errors(arguments))
             if errors:
-                return "; ".join(f"[{'/'.join(str(p) for p in e.path) or 'root'}] {e.message}" for e in errors)
+                return "; ".join(
+                    f"[{'/'.join(str(p) for p in e.path) or 'root'}] {e.message}" for e in errors
+                )
         return None
 
     async def _apply_fault_behavior(
@@ -158,46 +163,98 @@ class ToolProxy:
             await asyncio.sleep(behaviour.delay_ms / 1000.0)
 
         if fault_type == "http_500":
-            return {"error": "InternalServerError", "status_code": 500, "message": "Downstream server error"}, True, "HTTP500"
+            return (
+                {
+                    "error": "InternalServerError",
+                    "status_code": 500,
+                    "message": "Downstream server error",
+                },
+                True,
+                "HTTP500",
+            )
 
         if fault_type == "http_503":
             msg = behaviour.response_body or "Service temporarily unavailable"
-            return {"error": "ServiceUnavailable", "status_code": 503, "message": msg}, True, "HTTP503"
+            return (
+                {"error": "ServiceUnavailable", "status_code": 503, "message": msg},
+                True,
+                "HTTP503",
+            )
 
         if fault_type == "http_429":
             retry_after = behaviour.retry_after_seconds or 5
-            return {
-                "error": "RateLimitExceeded",
-                "status_code": 429,
-                "retry_after_seconds": retry_after,
-                "message": f"Rate limit exceeded. Retry after {retry_after}s",
-            }, True, "HTTP429"
+            return (
+                {
+                    "error": "RateLimitExceeded",
+                    "status_code": 429,
+                    "retry_after_seconds": retry_after,
+                    "message": f"Rate limit exceeded. Retry after {retry_after}s",
+                },
+                True,
+                "HTTP429",
+            )
 
         if fault_type == "dns_failure":
-            return {"error": "DNSLookupFailure", "message": f"Failed to resolve host for tool {tool_name}"}, True, "DNSLookupFailure"
+            return (
+                {
+                    "error": "DNSLookupFailure",
+                    "message": f"Failed to resolve host for tool {tool_name}",
+                },
+                True,
+                "DNSLookupFailure",
+            )
 
         if fault_type == "connection_refused":
-            return {"error": "ConnectionRefused", "message": f"Connection refused by {tool_name} endpoint"}, True, "ConnectionRefused"
+            return (
+                {
+                    "error": "ConnectionRefused",
+                    "message": f"Connection refused by {tool_name} endpoint",
+                },
+                True,
+                "ConnectionRefused",
+            )
 
         if fault_type == "dropped_response":
-            return {"error": "ConnectionReset", "message": "Remote host closed connection without response"}, True, "ConnectionReset"
+            return (
+                {
+                    "error": "ConnectionReset",
+                    "message": "Remote host closed connection without response",
+                },
+                True,
+                "ConnectionReset",
+            )
 
         if fault_type == "timeout_before_execution":
-            return {"error": "TimeoutError", "message": f"Request to {tool_name} timed out before execution"}, True, "TimeoutError"
+            return (
+                {
+                    "error": "TimeoutError",
+                    "message": f"Request to {tool_name} timed out before execution",
+                },
+                True,
+                "TimeoutError",
+            )
 
         if fault_type == "timeout_after_execution":
             if behaviour.side_effect_committed:
                 # Commit side effect to environment, but simulate timeout error returning to agent
                 self.environment.execute_tool(tool_name, arguments)
-            return {
-                "error": "TimeoutError",
-                "message": f"Request to {tool_name} timed out waiting for response headers",
-                "side_effect_uncertain": True,
-            }, True, "TimeoutError"
+            return (
+                {
+                    "error": "TimeoutError",
+                    "message": f"Request to {tool_name} timed out waiting for response headers",
+                    "side_effect_uncertain": True,
+                },
+                True,
+                "TimeoutError",
+            )
 
         if fault_type == "malformed_json":
             raw_body = behaviour.response_body or '{"malformed": '
-            return {"raw_output": raw_body, "parse_error": "JSONDecodeError: Unterminated string"}, True, "MalformedJSON"
+            return (
+                {"raw_output": raw_body, "parse_error": "JSONDecodeError: Unterminated string"},
+                True,
+                "MalformedJSON",
+            )
 
         if fault_type == "schema_invalid_result":
             if behaviour.response_body:
@@ -217,7 +274,11 @@ class ToolProxy:
             return {"stale": True, "cached_at": "1970-01-01T00:00:00Z"}, False, None
 
         if fault_type == "partial_success":
-            return {"status": "partial_success", "warning": "Operation partially committed"}, False, None
+            return (
+                {"status": "partial_success", "warning": "Operation partially committed"},
+                False,
+                None,
+            )
 
         # Fallback generic fault
         return {"error": fault_type, "message": f"Fault injected: {fault_type}"}, True, fault_type

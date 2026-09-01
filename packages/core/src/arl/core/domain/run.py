@@ -113,9 +113,7 @@ class Budget(BaseModel):
     max_duration_seconds: int = Field(
         default=300, gt=0, description="Maximum trial wall-clock time"
     )
-    max_cost_usd: float = Field(
-        default=1.0, gt=0.0, description="Maximum total model cost in USD"
-    )
+    max_cost_usd: float = Field(default=1.0, gt=0.0, description="Maximum total model cost in USD")
     max_prompt_tokens: int | None = Field(
         default=None, gt=0, description="Maximum prompt tokens across all turns"
     )
