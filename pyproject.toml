@@ -1,0 +1,178 @@
+[project]
+name = "agent-reliability-lab"
+version = "0.1.0"
+description = "Production-readiness testing platform for AI agents"
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Agent Reliability Lab Contributors" }]
+keywords = ["ai", "agents", "testing", "reliability", "evaluation"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Testing",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[tool.uv.workspace]
+members = [
+  "packages/core",
+  "packages/protocol",
+  "packages/scenario-engine",
+  "packages/fault-engine",
+  "packages/graders",
+  "packages/statistics",
+  "packages/security",
+  "packages/telemetry",
+  "packages/report-generator",
+  "packages/sdk-python",
+  "apps/api",
+  "apps/worker",
+  "apps/cli",
+  "adapters/http",
+  "adapters/openai-agents",
+  "adapters/langgraph",
+  "adapters/reference",
+  "environments/customer-support",
+]
+
+[tool.uv]
+dev-dependencies = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "pytest-cov>=6.0",
+  "hypothesis>=6.115",
+  "ruff>=0.8",
+  "mypy>=1.13",
+  "sqlalchemy[mypy]>=2.0",
+  "testcontainers[postgres,redis]>=4.8",
+  "respx>=0.22",
+  "faker>=33.0",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff — linting and formatting
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["packages", "apps", "adapters", "environments"]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "W",   # pycodestyle warnings
+  "F",   # pyflakes
+  "I",   # isort
+  "B",   # flake8-bugbear
+  "C4",  # flake8-comprehensions
+  "UP",  # pyupgrade
+  "ARG", # flake8-unused-arguments
+  "SIM", # flake8-simplify
+  "TCH", # flake8-type-checking
+  "RUF", # ruff-specific rules
+  "S",   # flake8-bandit (security)
+  "N",   # pep8-naming
+  "ANN", # flake8-annotations
+  "PT",  # flake8-pytest-style
+  "ERA", # eradicate (commented-out code)
+  "PL",  # pylint
+  "TRY", # tryceratops
+  "PERF",# perflint
+]
+ignore = [
+  "ANN101",  # missing type annotation for self
+  "ANN102",  # missing type annotation for cls
+  "ANN401",  # dynamically typed expressions (Any) — allowed in adapters
+  "TRY003",  # avoid specifying messages outside exception class
+  "PLR0913", # too many arguments — unavoidable in some constructors
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "ANN", "PLR2004"]
+"**/migrations/**" = ["ANN"]
+"**/alembic/**" = ["ANN"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["arl"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+magic-trailing-comma = true
+
+# ---------------------------------------------------------------------------
+# MyPy — strict type checking
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+strict_optional = true
+plugins = ["sqlalchemy.ext.mypy.plugin", "pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["alembic.*", "testcontainers.*", "redis.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# Pytest — test discovery and configuration
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["packages", "apps", "adapters", "environments", "tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+  "--strict-markers",
+  "--tb=short",
+  "-ra",
+  "--cov=packages",
+  "--cov=apps",
+  "--cov=adapters",
+  "--cov=environments",
+  "--cov-report=term-missing",
+  "--cov-report=xml:coverage.xml",
+  "--cov-fail-under=85",
+]
+markers = [
+  "unit: fast unit tests with no external dependencies",
+  "integration: tests requiring PostgreSQL and Redis",
+  "contract: adapter and API contract tests",
+  "e2e: full end-to-end tests",
+  "security: security-specific tests",
+  "recovery: worker crash and recovery tests",
+  "performance: load and performance tests",
+  "slow: tests that take more than 5 seconds",
+]
+
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+branch = true
+source = ["packages", "apps", "adapters", "environments"]
+omit = ["*/tests/*", "*/alembic/*", "*/migrations/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "raise NotImplementedError",
+  "if TYPE_CHECKING:",
+  "@(abc\\.)?abstractmethod",
+]

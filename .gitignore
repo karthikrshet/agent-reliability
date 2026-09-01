@@ -1,0 +1,114 @@
+# Agent Reliability Lab — .gitignore
+
+# ─────────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+coverage.xml
+.coverage
+htmlcov/
+*.pyo
+*.pyd
+*.pdb
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# uv
+uv.lock
+.python-version
+
+# ─────────────────────────────────────────────
+# Node / TypeScript
+# ─────────────────────────────────────────────
+node_modules/
+.next/
+out/
+.turbo/
+dist/
+*.tsbuildinfo
+pnpm-debug.log*
+.eslintcache
+.prettierignore
+
+# ─────────────────────────────────────────────
+# Environment and secrets — NEVER commit these
+# ─────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.cert
+*.pfx
+secrets/
+credentials/
+
+# ─────────────────────────────────────────────
+# Docker
+# ─────────────────────────────────────────────
+.docker/
+
+# ─────────────────────────────────────────────
+# Databases
+# ─────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+postgres-data/
+redis-data/
+
+# ─────────────────────────────────────────────
+# Editor / IDE
+# ─────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─────────────────────────────────────────────
+# Testing artifacts
+# ─────────────────────────────────────────────
+test-results/
+playwright-report/
+test-report.xml
+junit.xml
+
+# ─────────────────────────────────────────────
+# Build artifacts
+# ─────────────────────────────────────────────
+*.whl
+*.tar.gz
+
+# ─────────────────────────────────────────────
+# OpenTelemetry / observability local data
+# ─────────────────────────────────────────────
+otel-data/
+
+# ─────────────────────────────────────────────
+# Benchmark outputs
+# ─────────────────────────────────────────────
+benchmark/reports/local/
+
+# ─────────────────────────────────────────────
+# SBOM outputs
+# ─────────────────────────────────────────────
+sbom.json
+sbom.spdx
