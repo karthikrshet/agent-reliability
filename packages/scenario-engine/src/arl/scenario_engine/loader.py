@@ -270,3 +270,7 @@ def validate_scenario_file(path: Path | str) -> list[str]:
             errors.extend(exc.context.get("errors", [str(exc)]))
 
     return errors
+
+
+# Alias for backward and path clarity
+load_scenario_from_path = load_scenario

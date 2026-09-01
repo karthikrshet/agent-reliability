@@ -115,6 +115,7 @@ class LeaseManager:
                 duration_seconds=duration_seconds,
                 total_tokens=total_tokens,
                 total_cost_usd=total_cost_usd,
+                worker_id=None,
                 completed_at=now,
                 lease_expires_at=None,
             )

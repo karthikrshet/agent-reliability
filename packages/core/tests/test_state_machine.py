@@ -96,7 +96,7 @@ def test_cancellation_path() -> None:
         actor="worker",
         reason="worker acknowledged cancellation",
     )
-    assert machine.state == EvaluationRunState.CANCELLED
+    assert machine.state == EvaluationRunState.CANCELLED  # type: ignore[comparison-overlap]
 
 
 @pytest.mark.unit

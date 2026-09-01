@@ -265,7 +265,7 @@ def test_make_fault_event_is_immutable() -> None:
     from pydantic import ValidationError
 
     with pytest.raises((AttributeError, TypeError, ValidationError)):
-        event.fault_type = None  # type: ignore[misc]
+        event.fault_type = None  # type: ignore[misc,assignment]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

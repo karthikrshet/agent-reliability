@@ -20,6 +20,7 @@ from arl.grading_engine.deterministic import (
     EffectMatchGrader,
 )
 from arl.scenario_engine.loader import load_scenario_from_string
+from arl.scenario_engine.schema import ParsedScenario
 
 SCENARIO_YAML = """
 schema_version: "1.0"
@@ -64,12 +65,12 @@ forbidden_effects:
 
 
 @pytest.fixture
-def base_scenario():
+def base_scenario() -> ParsedScenario:
     return load_scenario_from_string(SCENARIO_YAML)
 
 
 @pytest.fixture
-def base_trial():
+def base_trial() -> Trial:
     return Trial(
         id="t-grade-1",
         run_id="run-1",
@@ -81,7 +82,9 @@ def base_trial():
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_effect_grader_success_and_forbidden_tool_veto(base_trial, base_scenario) -> None:
+async def test_effect_grader_success_and_forbidden_tool_veto(
+    base_trial: Trial, base_scenario: ParsedScenario
+) -> None:
     grader = EffectMatchGrader()
 
     tc1 = ToolCall(
@@ -95,29 +98,25 @@ async def test_effect_grader_success_and_forbidden_tool_veto(base_trial, base_sc
     tc2 = ToolCall(
         id="tc-2",
         trial_id="t-grade-1",
-        agent_turn_id="turn-2",
+        agent_turn_id="turn-1",
         sequence_index=1,
         tool_name="order.cancel",
         call_arguments={"order_id": "order-1042"},
     )
 
-    snapshot_ok = WorldStateSnapshot(
-        id="snap-ok",
+    # 1. State snapshot where expected effect (order-1042 cancelled) is met
+    snapshot = WorldStateSnapshot(
+        id="snap-1",
         trial_id="t-grade-1",
         environment_version_id="1.0.0",
         snapshot_type="final",
-        state={
-            "orders": {
-                "order-1042": {"status": "cancelled"},
-                "order-1001": {"status": "delivered"},
-            }
-        },
+        state={"orders": {"order-1042": {"status": "cancelled"}}},
         schema_version="1.0",
         is_schema_valid=True,
         captured_at=datetime.now(UTC),
     )
 
-    res_ok = TrialExecutionResult(
+    res_pass = TrialExecutionResult(
         trial_id="t-grade-1",
         completed_normally=True,
         termination_reason="completed",
@@ -126,37 +125,37 @@ async def test_effect_grader_success_and_forbidden_tool_veto(base_trial, base_sc
         tool_results=[],
         fault_events=[],
         pre_snapshot=None,
-        post_snapshot=snapshot_ok,
+        post_snapshot=snapshot,
         total_cost_usd=0.01,
-        final_response="Order cancelled.",
+        final_response="Order 1042 cancelled.",
     )
 
-    result = await grader.grade(base_trial, base_scenario, res_ok)
+    result = await grader.grade(base_trial, base_scenario, res_pass)
     assert result.passed is True
     assert result.score == 1.0
     assert result.is_critical_failure is False
 
-    # Forbidden tool executed -> CRITICAL_FAIL
-    tc_forb = ToolCall(
+    # 2. Forbidden tool call test (customer.delete called -> CRITICAL FAIL)
+    tc_forbidden = ToolCall(
         id="tc-forb",
         trial_id="t-grade-1",
-        agent_turn_id="turn-3",
+        agent_turn_id="turn-1",
         sequence_index=2,
         tool_name="customer.delete",
-        call_arguments={},
+        call_arguments={"customer_id": "customer-101"},
     )
     res_forb = TrialExecutionResult(
         trial_id="t-grade-1",
         completed_normally=True,
         termination_reason="completed",
         turns=[],
-        tool_calls=[tc1, tc2, tc_forb],
+        tool_calls=[tc1, tc2, tc_forbidden],
         tool_results=[],
         fault_events=[],
         pre_snapshot=None,
-        post_snapshot=snapshot_ok,
+        post_snapshot=snapshot,
         total_cost_usd=0.01,
-        final_response="Done",
+        final_response="Deleted customer.",
     )
     result_forb = await grader.grade(base_trial, base_scenario, res_forb)
     assert result_forb.passed is False
@@ -166,7 +165,9 @@ async def test_effect_grader_success_and_forbidden_tool_veto(base_trial, base_sc
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_effect_grader_forbidden_path_veto(base_trial, base_scenario) -> None:
+async def test_effect_grader_forbidden_path_veto(
+    base_trial: Trial, base_scenario: ParsedScenario
+) -> None:
     grader = EffectMatchGrader()
 
     tc1 = ToolCall(
@@ -217,7 +218,7 @@ async def test_effect_grader_forbidden_path_veto(base_trial, base_scenario) -> N
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_conversation_match_grader(base_trial, base_scenario) -> None:
+async def test_conversation_match_grader(base_trial: Trial, base_scenario: ParsedScenario) -> None:
     grader = ConversationMatchGrader()
 
     res_pass = TrialExecutionResult(
@@ -239,7 +240,7 @@ async def test_conversation_match_grader(base_trial, base_scenario) -> None:
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_budget_grader(base_trial, base_scenario) -> None:
+async def test_budget_grader(base_trial: Trial, base_scenario: ParsedScenario) -> None:
     grader = BudgetGrader()
 
     # Exceeding turn limit (max_turns: 5)
@@ -271,7 +272,9 @@ async def test_budget_grader(base_trial, base_scenario) -> None:
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_deterministic_trial_evaluator_all_pass(base_trial, base_scenario) -> None:
+async def test_deterministic_trial_evaluator_all_pass(
+    base_trial: Trial, base_scenario: ParsedScenario
+) -> None:
     evaluator = DeterministicTrialEvaluator()
 
     tc1 = ToolCall(
