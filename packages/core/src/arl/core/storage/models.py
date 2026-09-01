@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from typing import Any, ClassVar
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     Float,
@@ -25,14 +26,16 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
+
 
 class Base(DeclarativeBase):
     """Base class for all SQLAlchemy ORM models."""
 
     type_annotation_map: ClassVar[dict[Any, Any]] = {
-        dict[str, Any]: JSONB,
-        list[dict[str, Any]]: JSONB,
-        list[str]: JSONB,
+        dict[str, Any]: JSON_TYPE,
+        list[dict[str, Any]]: JSON_TYPE,
+        list[str]: JSON_TYPE,
     }
 
 
@@ -87,8 +90,8 @@ class AgentVersionModel(Base):
     version_tag: Mapped[str] = mapped_column(String(64), nullable=False)
     system_prompt_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     endpoint_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    model_config_data: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
-    metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, default=dict)
+    model_config_data: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
+    metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSON_TYPE, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # Relationships
@@ -130,7 +133,7 @@ class ScenarioVersionModel(Base):
     source_yaml: Mapped[str] = mapped_column(Text, nullable=False)
     source_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     severity: Mapped[str] = mapped_column(String(20), default="medium")
-    tags: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    tags: Mapped[list[str]] = mapped_column(JSON_TYPE, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # Relationships
@@ -216,7 +219,7 @@ class ToolCallModel(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     trial_id: Mapped[str] = mapped_column(String(36), ForeignKey("trials.id", ondelete="CASCADE"), nullable=False, index=True)
     tool_name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
-    arguments: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    arguments: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, nullable=False)
     idempotency_key: Mapped[str | None] = mapped_column(String(120), nullable=True)
     turn_index: Mapped[int] = mapped_column(Integer, nullable=False)
     call_index_in_turn: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -234,7 +237,7 @@ class ToolResultModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     tool_call_id: Mapped[str] = mapped_column(String(36), ForeignKey("tool_calls.id", ondelete="CASCADE"), unique=True, nullable=False)
-    content: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    content: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, nullable=False)
     is_error: Mapped[bool] = mapped_column(Boolean, default=False)
     error_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
@@ -252,7 +255,7 @@ class FaultEventModel(Base):
     fault_type: Mapped[str] = mapped_column(String(80), nullable=False)
     target_tool: Mapped[str] = mapped_column(String(120), nullable=False)
     trigger_invocation: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    behaviour_data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    behaviour_data: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, nullable=False)
     fault_seed: Mapped[int] = mapped_column(Integer, nullable=False)
     injected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
@@ -266,7 +269,7 @@ class WorldStateSnapshotModel(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     trial_id: Mapped[str] = mapped_column(String(36), ForeignKey("trials.id", ondelete="CASCADE"), nullable=False, index=True)
     phase: Mapped[str] = mapped_column(String(40), nullable=False)  # pre_trial, post_trial, post_turn
-    state_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    state_payload: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, nullable=False)
     captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # Relationships
@@ -291,8 +294,8 @@ class GraderResultModel(Base):
     severity: Mapped[str | None] = mapped_column(String(20), nullable=True)
     is_critical_failure: Mapped[bool] = mapped_column(Boolean, default=False)
     summary: Mapped[str] = mapped_column(Text, default="")
-    findings: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
-    evidence_ids: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    findings: Mapped[list[dict[str, Any]]] = mapped_column(JSON_TYPE, default=list)
+    evidence_ids: Mapped[list[str]] = mapped_column(JSON_TYPE, default=list)
     graded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # Relationships
@@ -310,7 +313,7 @@ class SecurityFindingModel(Base):
     confidence: Mapped[str] = mapped_column(String(20), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    evidence: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
     remediation: Mapped[str] = mapped_column(Text, default="")
     detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
@@ -347,5 +350,5 @@ class AuditEventModel(Base):
     resource_type: Mapped[str] = mapped_column(String(80), nullable=False)
     resource_id: Mapped[str] = mapped_column(String(36), nullable=False)
     project_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    event_data: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    event_data: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True)

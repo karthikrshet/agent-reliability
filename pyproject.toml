@@ -92,8 +92,17 @@ ignore = [
   "PLC0415", # import outside top level
   "UP042",   # str, Enum inheritance (Pydantic v2 compatible)
   "TC003",   # type-checking block requirement
+  "TC001",   # type-checking block requirement for application imports
+  "TC002",   # type-checking block requirement for third-party imports
   "E501",    # line length (handled by formatter)
   "S105",    # possible hardcoded password (flags PASS and PASS_AT_K verdicts)
+  "PLR0911", # too many return statements (dispatch tables)
+  "PLR0912", # too many branches (orchestration loops)
+  "PLR0915", # too many statements (orchestration methods)
+  "PLR0917", # too many positional arguments
+  "S110",    # try-except-pass
+  "TRY300",  # else return
+  "ARG002",  # unused method argument in protocol implementations
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -116,7 +125,7 @@ skip-magic-trailing-comma = false
 python_version = "3.12"
 strict = true
 explicit_package_bases = true
-mypy_path = "packages/core/src:packages/protocol/src:packages/scenario-engine/src:packages/fault-engine/src"
+mypy_path = "packages/core/src:packages/protocol/src:packages/scenario-engine/src:packages/fault-engine/src:packages/execution-engine/src:environments/customer-support/src:adapters/reference/src:adapters/http/src:apps/worker/src"
 warn_return_any = true
 warn_unused_configs = true
 warn_redundant_casts = true

@@ -235,6 +235,13 @@ class InfrastructureError(ARLError):
     Maps to CLI exit code 3.
     """
 
+    def __init__(self, message: str, component: str = "", **context: Any) -> None:
+        super().__init__(
+            f"Infrastructure error [{component}]: {message}" if component else f"Infrastructure error: {message}",
+            component=component,
+            **context,
+        )
+
 
 class WorkerLeaseError(InfrastructureError):
     """A worker lease operation failed.

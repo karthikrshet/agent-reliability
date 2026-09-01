@@ -319,7 +319,7 @@ class AgentAdapter(Protocol):
         """
         ...
 
-    async def stream(
+    def stream(
         self,
         session: AgentSession,
         message: AgentInput,
