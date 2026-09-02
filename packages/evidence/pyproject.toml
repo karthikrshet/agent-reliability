@@ -6,8 +6,7 @@ build-backend = "hatchling.build"
 name = "arl-evidence"
 version = "0.1.0"
 description = "Immutable cryptographic evidence collection and audit reporting for Agent Reliability Lab"
-readme = "README.md"
-license = "Apache-2.0"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "arl-core>=0.1.0",

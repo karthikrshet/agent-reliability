@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "arl-adapter-openai"
+version = "0.1.0"
+description = "Agent Reliability Lab — OpenAI-compatible ChatCompletions agent adapter"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [
+    { name = "Karthik Rajesh Shet", email = "kartikrshet@gmail.com" }
+]
+dependencies = [
+    "arl-core",
+    "arl-protocol",
+    "httpx>=0.28",
+    "pydantic>=2.9",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/arl"]

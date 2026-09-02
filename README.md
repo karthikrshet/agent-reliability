@@ -15,59 +15,79 @@
 
 ---
 
-## 🚀 Overview
+## 🎯 What is Agent Reliability Lab?
 
-**Agent Reliability Lab (ARL)** is an enterprise-grade evaluation platform designed to verify whether an autonomous AI agent is truly **safe, resilient, and ready for production deployment**.
+> **Key Distinction**: Testsigma and similar platforms use AI agents to test applications. **Agent Reliability Lab tests the reliability, resilience, and security of the AI agents themselves.**
 
-Unlike basic prompt evaluation tools, ARL places agents inside **sandboxed environments** with **20+ deterministic fault-injection behaviors** (transient HTTP 500s, schema drifts, timeouts, cascading loop triggers, prompt injections, and cross-tenant privilege escalation attempts). Every evaluation run produces an **immutable cryptographic proof chain** (SHA-256) and computes rigorous **95% Wilson score confidence intervals** with **unbiased Pass@k** metrics.
+Autonomous AI agents fail in production in non-deterministic ways: cascading infinite tool loops, fragile schema handling after API changes, vulnerability to indirect prompt injections in tool outputs, cross-tenant data leakage, and unhandled transient HTTP 500s/429s.
 
-```
-+-----------------------------------------------------------------------------------+
-|                           Agent Reliability Lab Architecture                      |
-+-----------------------------------------------------------------------------------+
-|                                                                                   |
-|   +-------------------+    +--------------------+    +------------------------+   |
-|   |   Next.js 15 Web  |    |   agentlab CLI     |    |    Model Context       |   |
-|   |     Dashboard     |    |     (Typer)        |    |    Protocol (MCP)      |   |
-|   +---------+---------+    +---------+----------+    +-----------+------------+   |
-|             |                        |                           |                |
-|             v                        v                           v                |
-|   +---------------------------------------------------------------------------+   |
-|   |                 FastAPI REST API Server (RFC 7807)                        |   |
-|   +------------------------------------+--------------------------------------+   |
-|                                        |                                          |
-|                                        v                                          |
-|   +---------------------------------------------------------------------------+   |
-|   |         Execution Engine & Distributed Worker Leases (PostgreSQL)         |   |
-|   +------------------------------------+--------------------------------------+   |
-|                                        |                                          |
-|         +------------------------------+------------------------------+           |
-|         |                              |                              |           |
-|         v                              v                              v           |
-|   +-------------+              +---------------+              +---------------+   |
-|   | Tool Proxy  |              | Deterministic |              | Cryptographic |   |
-|   |  & Faults   |              | Graders & LLM |              | Evidence Chain|   |
-|   | (20 Chaos)  |              | (Wilson Score)|              |   (SHA-256)   |   |
-|   +-------------+              +---------------+              +---------------+   |
-|                                                                                   |
-+-----------------------------------------------------------------------------------+
+**Agent Reliability Lab (ARL)** provides a reproducible, statistical test harness that executes your agent inside sandboxed environments with **seed-controlled deterministic fault injection**, validates its **observable execution trajectory**, computes **95% Wilson score confidence intervals**, and produces an **immutable SHA-256 cryptographic evidence ledger**.
+
+---
+
+## 🏛 Architecture
+
+```mermaid
+graph TD
+    subgraph Interfaces ["Developer Interfaces"]
+        CLI["agentlab CLI (Typer)"]
+        DASH["Next.js 15 Web Dashboard"]
+        MCP["Model Context Protocol Server"]
+    end
+
+    subgraph CoreEngine ["ARL Core Execution & Orchestration"]
+        API["FastAPI REST API Server"]
+        WORKER["Distributed Worker Leases (PostgreSQL)"]
+        EXEC["Stateful Multi-Turn Trial Executor"]
+        PROXY["Tool Proxy & Fault Injector (20 Chaos Behaviors)"]
+    end
+
+    subgraph Evaluation ["Grading, Statistics & Cryptography"]
+        RULE["Deterministic Rule Graders"]
+        JUDGE["Semantic LLM Judges (Structured Output)"]
+        STATS["Wilson Score CI & Unbiased Pass@k"]
+        LEDGER["SHA-256 Tamper-Evident Evidence Ledger"]
+    end
+
+    subgraph AgentBoundary ["Target Agent Under Test"]
+        HTTP_AGENT["Generic HTTP Agent Endpoint"]
+        OPENAI_AGENT["OpenAI-Compatible Agent"]
+        MOCK_AGENT["Reference Mock Agent"]
+    end
+
+    CLI --> API
+    DASH --> API
+    MCP --> API
+    API --> WORKER
+    WORKER --> EXEC
+    EXEC <--> PROXY
+    PROXY <--> HTTP_AGENT
+    PROXY <--> OPENAI_AGENT
+    PROXY <--> MOCK_AGENT
+    EXEC --> RULE
+    EXEC --> JUDGE
+    RULE --> STATS
+    JUDGE --> STATS
+    EXEC --> LEDGER
 ```
 
 ---
 
-## 🌟 Key Features
+## 🚦 Verified Capability Matrix
 
-- **25 Canonical Test Scenarios**: Complete benchmark suite spanning 5 core reliability dimensions:
-  1. *Tool Correctness & Typing* (Idempotency, strict schema validation, type coercion)
-  2. *Failure Recovery & Resilience* (Transient HTTP 500 retries, timeouts, rate-limiting backoffs)
-  3. *Resource & Budget Control* (Cascade loop termination, token ceilings, turn caps)
-  4. *Multi-Tenant Security Isolation* (Zero unauthorized cross-tenant data leaks)
-  5. *Prompt Injection & Jailbreak Defense* (Indirect instructions, markdown exfiltration, delimiter breakout)
-- **Model Context Protocol (MCP) Server**: Integrates directly with Claude Desktop, Cursor, and Antigravity IDE (`python -m arl.mcp`).
-- **Next.js 15 App Router Dashboard**: Real-time evaluation dashboard with Wilson confidence interval visualizers, turn-by-turn trajectory inspection, and fault timeline step-through.
-- **`agentlab` CLI Tool**: Fast developer CLI for scenario validation, local audit runs, and auditor-ready Markdown/JSON report export.
-- **Fail-Closed Safety Engine**: Invariant violations (cross-tenant access, unauthorized writes) trigger immediate `CRITICAL_FAIL` vetoes.
-- **Cryptographic Audit Ledger**: Immutable SHA-256 hash chains on all execution records ensure tamper-proof proof of compliance.
+| Capability | Status | Description |
+| :--- | :--- | :--- |
+| **25 Canonical Scenarios** | `Stable` | Validated JSON Schema 2020-12 definitions across 5 reliability dimensions |
+| **Deterministic Fault Injection** | `Stable` | Seed-controlled execution with 20 chaos fault types |
+| **Statistical Verification** | `Stable` | 95% Wilson score confidence intervals & unbiased Pass@k metrics |
+| **SHA-256 Evidence Ledger** | `Stable` | Cryptographic hash chain over state transitions, tool calls, and findings |
+| **`agentlab` CLI** | `Stable` | Scenario validation, test execution, report generation, preflight diagnostics |
+| **Model Context Protocol (MCP)** | `Stable` | Full stdio JSON-RPC 2.0 implementation for Claude Desktop & Cursor |
+| **Generic HTTP Adapter** | `Stable` | SSRF-protected universal HTTP agent adapter |
+| **OpenAI-Compatible Adapter** | `Beta` | Native ChatCompletions & Tool Call protocol support |
+| **Next.js 15 Web Dashboard** | `Beta` | App Router dashboard with live API integration & trajectory inspector |
+| **Distributed Worker Leases** | `Beta` | Atomic PostgreSQL lease claims with expired worker reclamation |
+| **LangGraph / CrewAI Adapters** | `Planned` | Native framework SDK integrations |
 
 ---
 
@@ -103,71 +123,61 @@ Unlike basic prompt evaluation tools, ARL places agents inside **sandboxed envir
 
 ---
 
-## ⚡ Quick Start
+## ⚡ 5-Minute Quickstart
 
 ### 1. Installation
 ```bash
-# Clone repository
 git clone https://github.com/karthikrshet/agent-reliability.git
 cd agent-reliability
 
-# Create Python 3.12 virtualenv
+# Create and activate Python 3.12 virtualenv
 uv venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install all workspace packages
-uv pip install -e "packages/core[dev]" \
-               -e "packages/protocol[dev]" \
-               -e "packages/scenario-engine[dev]" \
-               -e "packages/fault-engine[dev]" \
-               -e "packages/execution-engine[dev]" \
-               -e "packages/grading-engine[dev]" \
-               -e "packages/evidence[dev]" \
-               -e "environments/customer-support[dev]" \
-               -e "adapters/reference[dev]" \
-               -e "adapters/http[dev]" \
-               -e "apps/worker[dev]" \
-               -e "apps/server[dev]" \
-               -e "apps/cli[dev]" \
-               -e "apps/mcp[dev]"
+# Install all workspace packages in editable mode
+uv pip install -e "packages/core" \
+               -e "packages/protocol" \
+               -e "packages/scenario-engine" \
+               -e "packages/fault-engine" \
+               -e "packages/execution-engine" \
+               -e "packages/grading-engine" \
+               -e "packages/evidence" \
+               -e "environments/customer-support" \
+               -e "adapters/reference" \
+               -e "adapters/http" \
+               -e "apps/worker" \
+               -e "apps/server" \
+               -e "apps/cli" \
+               -e "apps/mcp"
 ```
 
-### 2. Run CLI Audits (`agentlab`)
+### 2. Preflight Health Check
 ```bash
-# List all 25 canonical evaluation scenarios
-agentlab list-scenarios
+agentlab doctor
+```
 
-# Validate scenario YAML definitions against JSON Schema 2020-12
-agentlab validate scenarios/tool-correctness/01-order-lookup-correct-arguments.yaml
-
-# Execute evaluation run across scenarios (3 trials each, deterministic seed 42)
+### 3. Run Reliability Evaluation
+```bash
+# Run 3 trials each across scenarios with base seed 42
 agentlab run -s scenarios/ -n 3 --seed 42 --threshold 0.80
 
-# Generate and export auditor report
+# Export auditor-ready Markdown report
 agentlab report --run-id latest --format markdown --output audit-report.md
 ```
 
-### 3. Start Next.js 15 Web Dashboard
+### 4. Launch Next.js 15 Web Dashboard
 ```bash
 cd apps/dashboard
 npm install
 npm run dev
-# Open http://localhost:3000 to view live dashboard, fault timelines, and Wilson interval gauges
-```
-
-### 4. Start REST API Server
-```bash
-python -m arl.server.main
-# REST API available on http://localhost:8000 (OpenAPI docs at http://localhost:8000/docs)
+# Open http://localhost:3000
 ```
 
 ---
 
 ## 🔌 Model Context Protocol (MCP) Integration
 
-Agent Reliability Lab provides a built-in MCP server (`apps/mcp`) supporting Claude Desktop, Cursor, and Antigravity IDE.
-
-### Configuration (`mcp_config.json`):
+Configure `mcp_config.json` in Claude Desktop, Cursor, or Antigravity IDE:
 ```json
 {
   "mcpServers": {
@@ -182,13 +192,13 @@ Agent Reliability Lab provides a built-in MCP server (`apps/mcp`) supporting Cla
 }
 ```
 
-### Supported MCP Tools:
-- `list_scenarios`: Discover available reliability scenarios with filters.
-- `get_scenario_spec`: Fetch full scenario definitions and fault injection schedules.
-- `validate_scenario_yaml`: Verify custom YAML files against JSON Schema rules.
-- `run_evaluation_trial`: Execute sandboxed trials against target agents.
-- `calculate_wilson_interval`: Calculate 95% Wilson confidence intervals.
-- `verify_evidence_chain`: Cryptographically verify SHA-256 evidence chain validity.
+---
+
+## ⚠️ Current Limitations
+
+- **Stateful Persistence Backend**: Production worker lease coordination requires a live PostgreSQL instance (SQLite is supported for local single-process development).
+- **Semantic Judges**: Semantic LLM evaluation requires valid model provider credentials (`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`). Deterministic rule graders run 100% locally with zero external dependencies.
+- **Observable Execution Trajectory**: ARL observes external messages, tool calls, and state transitions; private chain-of-thought tokens are intentionally excluded from storage and inspection.
 
 ---
 
@@ -197,10 +207,6 @@ Agent Reliability Lab provides a built-in MCP server (`apps/mcp`) supporting Cla
 - **Code of Conduct**: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - **Contributing Guidelines**: [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Security Policy & Vulnerability Reporting**: [SECURITY.md](SECURITY.md)
-- **License**: [MIT License](LICENSE) (c) 2026 Karthik Rajesh Shet
-
----
-
-<p align="center">
-  Built with ❤️ by <strong><a href="https://github.com/karthikrshet">Karthik Rajesh Shet</a></strong>
-</p>
+- **Changelog**: [CHANGELOG.md](CHANGELOG.md)
+- **Roadmap**: [ROADMAP.md](ROADMAP.md)
+- **License**: [MIT License](LICENSE) © 2026 Karthik Rajesh Shet

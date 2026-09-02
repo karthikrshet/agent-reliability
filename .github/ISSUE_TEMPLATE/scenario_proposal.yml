@@ -1,0 +1,39 @@
+name: Scenario Proposal
+description: Propose a new canonical reliability evaluation scenario
+title: "[SCENARIO]: "
+labels: ["scenario", "evaluation"]
+body:
+  - type: input
+    id: scenario_id
+    attributes:
+      label: Scenario ID
+      description: Proposed unique kebab-case ID (e.g., tc-06-batch-order-paging)
+      placeholder: tc-06-batch-order-paging
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Reliability Category
+      options:
+        - tool-correctness
+        - failure-recovery
+        - resource-control
+        - security
+        - state-and-memory
+    validations:
+      required: true
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Failure Mode & Motivation
+      description: What production failure mode or edge case does this scenario test?
+    validations:
+      required: true
+  - type: textarea
+    id: expected_effects
+    attributes:
+      label: Expected & Forbidden Effects
+      description: What state changes or tool calls are expected, and which must be strictly forbidden?
+    validations:
+      required: true

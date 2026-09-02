@@ -6,8 +6,7 @@ build-backend = "hatchling.build"
 name = "arl-grading-engine"
 version = "0.1.0"
 description = "Deterministic rule grading, semantic LLM judges, and statistical metrics for Agent Reliability Lab"
-readme = "README.md"
-license = "Apache-2.0"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "arl-core>=0.1.0",
