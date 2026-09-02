@@ -1,15 +1,35 @@
 {
   "name": "agent-reliability-lab-monorepo",
   "version": "0.1.0",
-  "private": true,
+  "description": "Deterministic fault injection, statistical verification, and production readiness evaluation platform for tool-using AI agents",
+  "author": "Karthik Rajesh Shet <kartikrshet@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/karthikrshet/agent-reliability.git"
+  },
+  "keywords": [
+    "ai-agents",
+    "agent-evaluation",
+    "reliability",
+    "fault-injection",
+    "mcp-server",
+    "nextjs15",
+    "fastapi",
+    "statistical-testing",
+    "wilson-score",
+    "tamper-evident",
+    "production-readiness",
+    "llm-security"
+  ],
   "scripts": {
-    "dev": "pnpm --filter web dev",
-    "build": "pnpm --filter web build",
-    "lint": "pnpm --filter web lint",
-    "test": "pnpm --filter web test"
+    "dev": "npm --prefix apps/dashboard run dev",
+    "build": "npm --prefix apps/dashboard run build",
+    "lint": "npm --prefix apps/dashboard run lint",
+    "mcp": "python -m arl.mcp"
   },
   "devDependencies": {
     "prettier": "^3.3.3",
-    "typescript": "^5.6.3"
+    "typescript": "^5.7.3"
   }
 }

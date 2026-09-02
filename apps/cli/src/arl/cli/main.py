@@ -40,7 +40,7 @@ app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
 )
-console = Console()
+console = Console(legacy_windows=False)
 
 
 def _discover_all_scenarios(
@@ -143,11 +143,12 @@ async def _run_evaluation_async(
     agent_url: str | None,
     trials_per_scenario: int,
     base_seed: int,
+    threshold: float = 0.80,
 ) -> None:
     """Async engine executing evaluation trials."""
     evaluator = DeterministicTrialEvaluator()
     aggregator = EvaluationRunAggregator(
-        readiness_threshold=0.85, min_required_trials=len(scenario_paths) * trials_per_scenario
+        readiness_threshold=threshold, min_required_trials=len(scenario_paths) * trials_per_scenario
     )
     collector = EvidenceCollector()
 
@@ -263,13 +264,13 @@ async def _run_evaluation_async(
     # Print Final Audit Summary
     v = res.readiness_verdict
     if v == ReadinessVerdict.READY:
-        banner_title = "🟢 READINESS VERDICT: READY FOR PRODUCTION"
+        banner_title = "[READY] READINESS VERDICT: READY FOR PRODUCTION"
         banner_style = "bold green"
     elif v == ReadinessVerdict.NOT_READY:
-        banner_title = "🔴 READINESS VERDICT: NOT READY"
+        banner_title = "[NOT READY] READINESS VERDICT: NOT READY"
         banner_style = "bold red"
     else:
-        banner_title = "🟡 READINESS VERDICT: INSUFFICIENT EVIDENCE"
+        banner_title = "[INSUFFICIENT] READINESS VERDICT: INSUFFICIENT EVIDENCE"
         banner_style = "bold yellow"
 
     console.print(
@@ -302,6 +303,9 @@ def run_command(
         int, typer.Option("--trials", "-n", help="Number of trials per scenario")
     ] = 3,
     seed: Annotated[int, typer.Option("--seed", help="Deterministic base seed")] = 42,
+    threshold: Annotated[
+        float, typer.Option("--threshold", "-t", help="Production readiness threshold")
+    ] = 0.80,
 ) -> None:
     """Execute reliability testing trials against an agent."""
     if scenario_path is None:
@@ -318,9 +322,9 @@ def run_command(
         raise typer.Exit(code=1)
 
     console.print(
-        f"\n🚀 [bold]Starting evaluation across {len(scenario_paths)} scenario(s)...[/bold]\n"
+        f"\n[bold green]>>[/bold green] [bold]Starting evaluation across {len(scenario_paths)} scenario(s)...[/bold]\n"
     )
-    asyncio.run(_run_evaluation_async(scenario_paths, agent_url, trials, seed))
+    asyncio.run(_run_evaluation_async(scenario_paths, agent_url, trials, seed, threshold))
 
 
 if __name__ == "__main__":

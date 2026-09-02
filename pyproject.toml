@@ -1,19 +1,33 @@
 [project]
 name = "agent-reliability-lab"
 version = "0.1.0"
-description = "Production-readiness testing platform for AI agents"
+description = "Deterministic fault injection, statistical verification, and production readiness evaluation platform for tool-using AI agents"
 requires-python = ">=3.12"
 readme = "README.md"
-license = { text = "Apache-2.0" }
-authors = [{ name = "Agent Reliability Lab Contributors" }]
-keywords = ["ai", "agents", "testing", "reliability", "evaluation"]
+license = { text = "MIT" }
+authors = [{ name = "Karthik Rajesh Shet", email = "kartikrshet@gmail.com" }]
+keywords = [
+  "ai-agents",
+  "agent-evaluation",
+  "reliability",
+  "fault-injection",
+  "mcp-server",
+  "nextjs15",
+  "fastapi",
+  "statistical-testing",
+  "wilson-score",
+  "tamper-evident",
+  "production-readiness",
+  "llm-security",
+]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
+  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3.12",
   "Topic :: Software Development :: Testing",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Security",
 ]
 
 [tool.uv.workspace]
