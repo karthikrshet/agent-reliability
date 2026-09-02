@@ -141,6 +141,9 @@ def validate_command(
 async def _run_evaluation_async(
     scenario_paths: list[Path],
     agent_url: str | None,
+    openai_model: str | None,
+    openai_base_url: str | None,
+    reference_only: bool,
     trials_per_scenario: int,
     base_seed: int,
     threshold: float = 0.80,
@@ -192,9 +195,19 @@ async def _run_evaluation_async(
             env = CustomerSupportEnvironment(seed=fault_seed)
 
             # Initialize agent adapter
-            adapter: AgentAdapter = (
-                HttpAgentAdapter(endpoint_url=agent_url) if agent_url else MockAgentAdapter()
-            )
+            adapter: AgentAdapter
+            if agent_url:
+                adapter = HttpAgentAdapter(endpoint_url=agent_url)
+            elif openai_model:
+                from arl.adapters.openai.adapter import OpenAIAgentAdapter
+
+                base_u = openai_base_url or "https://api.openai.com/v1"
+                adapter = OpenAIAgentAdapter(
+                    endpoint_url=f"{base_u.rstrip('/')}/chat/completions",
+                    model=openai_model,
+                )
+            else:
+                adapter = MockAgentAdapter()
 
             executor = TrialExecutor(
                 trial=trial,
@@ -262,19 +275,28 @@ async def _run_evaluation_async(
     _ = ReportGenerator(run_result=res, evidence_collector=collector)
 
     # Print Final Audit Summary
-    v = res.readiness_verdict
-    if v == ReadinessVerdict.READY:
-        banner_title = "[READY] READINESS VERDICT: READY FOR PRODUCTION"
-        banner_style = "bold green"
-    elif v == ReadinessVerdict.NOT_READY:
-        banner_title = "[NOT READY] READINESS VERDICT: NOT READY"
-        banner_style = "bold red"
-    else:
-        banner_title = "[INSUFFICIENT] READINESS VERDICT: INSUFFICIENT EVIDENCE"
+    if reference_only:
+        banner_title = "[REFERENCE ONLY] NON_PRODUCTION_REFERENCE RUN (NO VERDICT ASSIGNED)"
         banner_style = "bold yellow"
+        verdict_text = "[bold yellow]NON_PRODUCTION_REFERENCE[/bold yellow] (Deterministic mock execution — no production validity)"
+    else:
+        v = res.readiness_verdict
+        if v == ReadinessVerdict.READY:
+            banner_title = "[READY] READINESS VERDICT: READY FOR PRODUCTION"
+            banner_style = "bold green"
+            verdict_text = "[bold green]READY[/bold green]"
+        elif v == ReadinessVerdict.NOT_READY:
+            banner_title = "[NOT READY] READINESS VERDICT: NOT READY"
+            banner_style = "bold red"
+            verdict_text = "[bold red]NOT READY[/bold red]"
+        else:
+            banner_title = "[INSUFFICIENT] READINESS VERDICT: INSUFFICIENT EVIDENCE"
+            banner_style = "bold yellow"
+            verdict_text = "[bold yellow]INSUFFICIENT EVIDENCE[/bold yellow]"
 
     console.print(
         Panel(
+            f"[bold]Verdict:[/bold] {verdict_text}\n"
             f"[bold]Pass Rate:[/bold] {res.pass_rate:.1%} "
             f"([cyan]95% Wilson CI: [{res.pass_rate_ci_lower:.1%}, {res.pass_rate_ci_upper:.1%}][/cyan])\n"
             f"[bold]Pass@1:[/bold] {res.pass_at_1:.3f} | [bold]Pass@3:[/bold] {res.pass_at_3 or 0.0:.3f}\n"
@@ -295,10 +317,20 @@ def run_command(
     ] = None,
     agent_url: Annotated[
         str | None,
-        typer.Option(
-            "--agent-url", "-u", help="HTTP Agent endpoint URL (leave empty for reference mock)"
-        ),
+        typer.Option("--agent-url", "-u", help="HTTP Agent endpoint URL"),
     ] = None,
+    openai_model: Annotated[
+        str | None,
+        typer.Option("--openai-model", help="OpenAI-compatible model name (e.g. gpt-4o-mini, llama3.1)"),
+    ] = None,
+    openai_base_url: Annotated[
+        str | None,
+        typer.Option("--openai-base-url", help="OpenAI-compatible base URL (default https://api.openai.com/v1)"),
+    ] = None,
+    reference_agent: Annotated[
+        bool,
+        typer.Option("--reference-agent", help="Use local deterministic reference agent (NON_PRODUCTION_REFERENCE)"),
+    ] = False,
     trials: Annotated[
         int, typer.Option("--trials", "-n", help="Number of trials per scenario")
     ] = 3,
@@ -308,6 +340,45 @@ def run_command(
     ] = 0.80,
 ) -> None:
     """Execute reliability testing trials against an agent."""
+    # Enforce exactly one target agent
+    targets_count = sum([bool(agent_url), bool(openai_model), bool(reference_agent)])
+    if targets_count == 0:
+        console.print(
+            Panel(
+                "[bold red]CONFIGURATION ERROR: No target agent specified.[/bold red]\n\n"
+                "You must explicitly choose exactly one evaluation target:\n"
+                "  [cyan]--agent-url <url>[/cyan]          HTTP Agent endpoint URL\n"
+                "  [cyan]--openai-model <model>[/cyan]     OpenAI-compatible model endpoint\n"
+                "  [cyan]--reference-agent[/cyan]          Deterministic reference agent (NON_PRODUCTION_REFERENCE)\n\n"
+                "Example: [green]agentlab run -s scenarios/ --agent-url http://127.0.0.1:8088[/green]",
+                title="[bold red]Target Configuration Required[/bold red]",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=2)
+
+    if targets_count > 1:
+        console.print(
+            Panel(
+                "[bold red]CONFIGURATION ERROR: Multiple target agents specified.[/bold red]\n\n"
+                "Please specify only one of [cyan]--agent-url[/cyan], [cyan]--openai-model[/cyan], or [cyan]--reference-agent[/cyan].",
+                title="[bold red]Conflicting Configuration[/bold red]",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=2)
+
+    if reference_agent:
+        console.print(
+            Panel(
+                "[bold yellow]WARNING: Running evaluation with deterministic reference infrastructure (MockAgentAdapter).[/bold yellow]\n\n"
+                "This run is marked [bold]reference_only=true[/bold], produces [bold]NON_PRODUCTION_REFERENCE[/bold] reports, "
+                "and will NOT produce a production readiness verdict.",
+                title="[bold yellow]Reference Run Notice[/bold yellow]",
+                border_style="yellow",
+            )
+        )
+
     if scenario_path is None:
         scenario_paths = [p for p, _ in _discover_all_scenarios()]
         if not scenario_paths:
@@ -324,7 +395,18 @@ def run_command(
     console.print(
         f"\n[bold green]>>[/bold green] [bold]Starting evaluation across {len(scenario_paths)} scenario(s)...[/bold]\n"
     )
-    asyncio.run(_run_evaluation_async(scenario_paths, agent_url, trials, seed, threshold))
+    asyncio.run(
+        _run_evaluation_async(
+            scenario_paths,
+            agent_url,
+            openai_model,
+            openai_base_url,
+            reference_agent,
+            trials,
+            seed,
+            threshold,
+        )
+    )
 
 
 @app.command(name="doctor")

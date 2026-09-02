@@ -36,18 +36,22 @@ class LeaseManager:
         now = datetime.now(UTC)
         lease_expiration = now + timedelta(seconds=self.default_lease_seconds)
 
+        bind = session.get_bind()
+        is_sqlite = bind is not None and bind.dialect.name == "sqlite"
+        now_cmp = now.replace(tzinfo=None) if is_sqlite else now
+        lease_exp = lease_expiration.replace(tzinfo=None) if is_sqlite else lease_expiration
+
         # Find pending or expired-lease running trials
         base_stmt = (
             select(TrialModel)
             .where(
                 (TrialModel.state == "PENDING")
-                | ((TrialModel.state == "RUNNING") & (TrialModel.lease_expires_at < now))
+                | ((TrialModel.state == "RUNNING") & (TrialModel.lease_expires_at < now_cmp))
             )
             .order_by(TrialModel.created_at.asc())
             .limit(1)
         )
 
-        bind = session.get_bind()
         if bind is not None and bind.dialect.name == "postgresql":
             stmt = base_stmt.with_for_update(skip_locked=True)
         else:
@@ -59,13 +63,13 @@ class LeaseManager:
         if trial is not None:
             trial.worker_id = self.worker_id
             trial.state = "RUNNING"
-            trial.lease_expires_at = lease_expiration
+            trial.lease_expires_at = lease_exp
             await session.commit()
             logger.info(
                 "Worker %s acquired lease on trial %s until %s",
                 self.worker_id,
                 trial.id,
-                lease_expiration,
+                lease_exp,
             )
             return trial
 
@@ -76,7 +80,10 @@ class LeaseManager:
     ) -> bool:
         """Extend lease expiration for an actively running trial."""
         secs = extension_seconds or self.default_lease_seconds
-        new_expiry = datetime.now(UTC) + timedelta(seconds=secs)
+        new_exp_dt = datetime.now(UTC) + timedelta(seconds=secs)
+        bind = session.get_bind()
+        is_sqlite = bind is not None and bind.dialect.name == "sqlite"
+        new_expiry = new_exp_dt.replace(tzinfo=None) if is_sqlite else new_exp_dt
 
         stmt = (
             update(TrialModel)
@@ -129,8 +136,12 @@ class LeaseManager:
     async def reclaim_expired_leases(self, session: AsyncSession) -> list[str]:
         """Reset running trials with expired leases back to PENDING."""
         now = datetime.now(UTC)
+        bind = session.get_bind()
+        is_sqlite = bind is not None and bind.dialect.name == "sqlite"
+        now_cmp = now.replace(tzinfo=None) if is_sqlite else now
+
         stmt = select(TrialModel.id).where(
-            TrialModel.state == "RUNNING", TrialModel.lease_expires_at < now
+            TrialModel.state == "RUNNING", TrialModel.lease_expires_at < now_cmp
         )
         result = await session.execute(stmt)
         expired_ids = list(result.scalars().all())

@@ -17,11 +17,11 @@
 
 ## 🎯 What is Agent Reliability Lab?
 
-> **Key Distinction**: Testsigma and similar platforms use AI agents to test applications. **Agent Reliability Lab tests the reliability, resilience, and security of the AI agents themselves.**
+Agent Reliability Lab evaluates the reliability, resilience and security of tool-using AI agents through stateful scenarios, controlled fault injection and reproducible evidence.
 
 Autonomous AI agents fail in production in non-deterministic ways: cascading infinite tool loops, fragile schema handling after API changes, vulnerability to indirect prompt injections in tool outputs, cross-tenant data leakage, and unhandled transient HTTP 500s/429s.
 
-**Agent Reliability Lab (ARL)** provides a reproducible, statistical test harness that executes your agent inside sandboxed environments with **seed-controlled deterministic fault injection**, validates its **observable execution trajectory**, computes **95% Wilson score confidence intervals**, and produces an **immutable SHA-256 cryptographic evidence ledger**.
+**Agent Reliability Lab (ARL)** provides a reproducible, statistical test harness that executes your agent inside sandboxed environments with **seed-controlled deterministic fault injection**, validates its **observable execution trajectory**, computes **95% Wilson score confidence intervals**, and produces a **tamper-evident SHA-256 cryptographic evidence chain**.
 
 ---
 
@@ -46,7 +46,7 @@ graph TD
         RULE["Deterministic Rule Graders"]
         JUDGE["Semantic LLM Judges (Structured Output)"]
         STATS["Wilson Score CI & Unbiased Pass@k"]
-        LEDGER["SHA-256 Tamper-Evident Evidence Ledger"]
+        LEDGER["SHA-256 Tamper-Evident Evidence Chain"]
     end
 
     subgraph AgentBoundary ["Target Agent Under Test"]
@@ -145,6 +145,7 @@ uv pip install -e "packages/core" \
                -e "environments/customer-support" \
                -e "adapters/reference" \
                -e "adapters/http" \
+               -e "adapters/openai-agents" \
                -e "apps/worker" \
                -e "apps/server" \
                -e "apps/cli" \
@@ -158,8 +159,11 @@ agentlab doctor
 
 ### 3. Run Reliability Evaluation
 ```bash
-# Run 3 trials each across scenarios with base seed 42
-agentlab run -s scenarios/ -n 3 --seed 42 --threshold 0.80
+# Evaluate an HTTP agent (e.g. on port 8088) across scenarios with 3 trials
+agentlab run -s scenarios/ --agent-url http://127.0.0.1:8088 -n 3 --seed 42 --threshold 0.80
+
+# Or run with explicit deterministic reference adapter (marked NON_PRODUCTION_REFERENCE)
+agentlab run -s scenarios/ --reference-agent -n 3 --seed 42
 
 # Export auditor-ready Markdown report
 agentlab report --run-id latest --format markdown --output audit-report.md

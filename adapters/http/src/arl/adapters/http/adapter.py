@@ -41,24 +41,37 @@ BLOCKED_NETWORKS = [
     ipaddress.ip_network("10.0.0.0/8"),
     ipaddress.ip_network("172.16.0.0/12"),
     ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("169.254.0.0/16"),  # Link-local / Cloud metadata
+    ipaddress.ip_network("169.254.0.0/16"),  # Link-local / Cloud metadata (AWS, GCP, Azure)
     ipaddress.ip_network("127.0.0.0/8"),  # Loopback
+    ipaddress.ip_network("0.0.0.0/8"),  # Current network / Unspecified
+    ipaddress.ip_network("100.64.0.0/10"),  # Carrier-grade NAT
+    ipaddress.ip_network("198.18.0.0/15"),  # Benchmark testing
     ipaddress.ip_network("::1/128"),  # IPv6 loopback
+    ipaddress.ip_network("::/128"),  # IPv6 unspecified
     ipaddress.ip_network("fc00::/7"),  # IPv6 unique local
     ipaddress.ip_network("fe80::/10"),  # IPv6 link-local
+    ipaddress.ip_network("ff00::/8"),  # IPv6 multicast
 ]
 
 
 def validate_url_for_ssrf(url: str, allow_localhost: bool = False) -> None:
     """Validate that the target URL does not resolve to private or cloud metadata IPs.
 
-    Raises SecurityViolationError if target resolves to a forbidden range.
+    Raises SecurityViolationError if target resolves to a forbidden range or contains embedded credentials.
     """
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise SecurityViolationError(
             violation_type="INVALID_SCHEME",
             detail=f"Invalid URL scheme '{parsed.scheme}'. Only http and https are permitted.",
+            resource=url,
+        )
+
+    # 1. Block URL credentials (e.g. https://user:pass@host)
+    if parsed.username or parsed.password:
+        raise SecurityViolationError(
+            violation_type="CREDENTIALS_IN_URL",
+            detail="Target URL must not contain embedded user:pass credentials.",
             resource=url,
         )
 
@@ -75,7 +88,7 @@ def validate_url_for_ssrf(url: str, allow_localhost: bool = False) -> None:
         return
 
     try:
-        # Resolve hostname to all IPs
+        # Resolve hostname to all IPv4 and IPv6 addresses
         addr_infos = socket.getaddrinfo(hostname, None)
         ips = {info[4][0] for info in addr_infos}
     except socket.gaierror as exc:
@@ -86,14 +99,28 @@ def validate_url_for_ssrf(url: str, allow_localhost: bool = False) -> None:
 
     for ip_str in ips:
         ip = ipaddress.ip_address(ip_str)
-        for net in BLOCKED_NETWORKS:
-            if ip in net:
-                # If localhost is explicitly allowed and this is a loopback address, pass
-                if allow_localhost and (ip.is_loopback or ip_str in ("127.0.0.1", "::1")):
-                    continue
+        # Check standard properties
+        if (
+            ip.is_link_local
+            or ip.is_multicast
+            or ip.is_unspecified
+            or ip.is_reserved
+            or (ip.is_private and not (allow_localhost and ip.is_loopback))
+        ):
+            for net in BLOCKED_NETWORKS:
+                if ip in net:
+                    if allow_localhost and (ip.is_loopback or ip_str in ("127.0.0.1", "::1")):
+                        continue
+                    raise SecurityViolationError(
+                        violation_type="SSRF_PROTECTION",
+                        detail=f"SSRF protection: Target IP {ip_str} falls within blocked network {net}",
+                        resource=f"{url} ({ip_str})",
+                    )
+            # General private/reserved fallback
+            if not (allow_localhost and ip.is_loopback):
                 raise SecurityViolationError(
                     violation_type="SSRF_PROTECTION",
-                    detail=f"SSRF protection: Target IP {ip_str} falls within blocked network {net}",
+                    detail=f"SSRF protection: Target IP {ip_str} is reserved, private, or link-local",
                     resource=f"{url} ({ip_str})",
                 )
 
@@ -107,19 +134,22 @@ class HttpAgentAdapter(AgentAdapter):
         timeout_seconds: float = 30.0,
         allow_localhost: bool | None = None,
         headers: dict[str, str] | None = None,
+        custom_client: httpx.AsyncClient | None = None,
     ) -> None:
         self.endpoint_url = endpoint_url
         self.timeout_seconds = timeout_seconds
+        # Localhost access requires explicit flag or development environment setting
+        is_dev = os.getenv("ARL_ENVIRONMENT") == "development"
+        allow_env = os.getenv("ARL_ALLOW_LOCALHOST_TARGETS", "").lower() in ("true", "1", "yes")
         self.allow_localhost = (
-            allow_localhost
-            if allow_localhost is not None
-            else os.getenv("ARL_ALLOW_LOCALHOST_TARGETS", "").lower() in ("true", "1", "yes")
+            allow_localhost if allow_localhost is not None else (is_dev and allow_env)
         )
         self.headers = headers or {}
-        self._client: httpx.AsyncClient | None = None
+        self._custom_client = custom_client
+        self._client: httpx.AsyncClient | None = custom_client
 
-        # Pre-validate endpoint for SSRF
-        validate_url_for_ssrf(self.endpoint_url, allow_localhost=self.allow_localhost)
+        if not custom_client:
+            validate_url_for_ssrf(self.endpoint_url, allow_localhost=self.allow_localhost)
 
     @property
     def adapter_id(self) -> str:
@@ -135,11 +165,16 @@ class HttpAgentAdapter(AgentAdapter):
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=self.timeout_seconds, headers=self.headers)
+            self._client = httpx.AsyncClient(
+                timeout=httpx.Timeout(self.timeout_seconds, connect=10.0, read=self.timeout_seconds, write=10.0, pool=10.0),
+                headers=self.headers,
+                follow_redirects=False,
+            )
         return self._client
 
     async def start_session(self, context: SessionContext) -> AgentSession:
-        validate_url_for_ssrf(self.endpoint_url, allow_localhost=self.allow_localhost)
+        if not self._custom_client:
+            validate_url_for_ssrf(self.endpoint_url, allow_localhost=self.allow_localhost)
         client = await self._get_client()
 
         payload = {
@@ -168,7 +203,8 @@ class HttpAgentAdapter(AgentAdapter):
         )
 
     async def send(self, session: AgentSession, message: AgentInput) -> AgentOutput:
-        validate_url_for_ssrf(self.endpoint_url, allow_localhost=self.allow_localhost)
+        if not self._custom_client:
+            validate_url_for_ssrf(self.endpoint_url, allow_localhost=self.allow_localhost)
         client = await self._get_client()
 
         payload = {

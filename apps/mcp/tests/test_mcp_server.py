@@ -99,18 +99,33 @@ async def test_mcp_verify_evidence_chain(mcp_server: MCPServer) -> None:
 
 @pytest.mark.asyncio
 async def test_mcp_run_evaluation_trial(mcp_server: MCPServer) -> None:
-    res = await mcp_server.handle_tool_call(
+    # Test without target -> must error
+    res_no_target = await mcp_server.handle_tool_call(
         "run_evaluation_trial",
         {"scenario_id": "order-lookup-correct-arguments", "seed": 42},
+    )
+    assert res_no_target.get("isError") is True
+
+    # Test with explicit reference_only -> succeeds
+    res = await mcp_server.handle_tool_call(
+        "run_evaluation_trial",
+        {
+            "scenario_id": "order-lookup-correct-arguments",
+            "seed": 42,
+            "reference_only": True,
+        },
     )
     assert not res.get("isError")
     data = json.loads(res["content"][0]["text"])
     assert data["scenario_id"] == "order-lookup-correct-arguments"
+    assert data["reference_only"] is True
+    assert data["verdict"] == "NON_PRODUCTION_REFERENCE"
     assert data["score"] >= 0
 
     # Test unknown scenario
     res_err = await mcp_server.handle_tool_call(
-        "run_evaluation_trial", {"scenario_id": "invalid-sc"}
+        "run_evaluation_trial",
+        {"scenario_id": "invalid-sc", "reference_only": True},
     )
     assert res_err.get("isError") is True
 

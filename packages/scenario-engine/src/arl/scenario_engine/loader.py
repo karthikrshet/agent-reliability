@@ -274,3 +274,4 @@ def validate_scenario_file(path: Path | str) -> list[str]:
 
 # Alias for backward and path clarity
 load_scenario_from_path = load_scenario
+load_scenario_from_file = load_scenario

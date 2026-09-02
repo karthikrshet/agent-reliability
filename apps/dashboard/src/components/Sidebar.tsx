@@ -36,7 +36,7 @@ export function Sidebar() {
               <div className="font-bold text-base tracking-tight text-white flex items-center gap-1.5">
                 ARL Platform
                 <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                  v1.0
+                  v0.2.1-beta
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-medium">Agent Reliability Lab</p>
@@ -44,13 +44,13 @@ export function Sidebar() {
           </Link>
         </div>
 
-        {/* Project Selector Badge */}
+        {/* Workspace Status Badge */}
         <div className="px-6 py-4">
           <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <div>
-                <p className="text-xs font-semibold text-slate-200">Retail Support Bot</p>
+                <p className="text-xs font-semibold text-slate-200">Evaluation Workspace</p>
                 <p className="text-[11px] text-slate-400">Environment: customer-support</p>
               </div>
             </div>
