@@ -85,6 +85,32 @@ async def test_projects_and_agents_crud(client: AsyncClient) -> None:
     res_agents = await client.get(f"/api/v1/projects/{proj_id}/agents")
     assert res_agents.status_code == 200
     assert len(res_agents.json()) == 1
+    agent_id = res_agents.json()[0]["id"]
+
+    # 6. Get single agent
+    res_ag_get = await client.get(f"/api/v1/projects/{proj_id}/agents/{agent_id}")
+    assert res_ag_get.status_code == 200
+    assert res_ag_get.json()["id"] == agent_id
+
+    # 7. Create new agent version
+    res_ag_ver = await client.post(
+        f"/api/v1/projects/{proj_id}/agents/{agent_id}/versions",
+        json={"version_tag": "1.1.0", "endpoint_url": "http://localhost:9001"},
+    )
+    assert res_ag_ver.status_code == 201
+    assert res_ag_ver.json()["version_tag"] == "1.1.0"
+
+    # 8. Patch project
+    res_patch = await client.patch(
+        f"/api/v1/projects/{proj_id}",
+        json={"name": "Retail Support Bot Updated"},
+    )
+    assert res_patch.status_code == 200
+    assert res_patch.json()["name"] == "Retail Support Bot Updated"
+
+    # 9. Delete project
+    res_del = await client.delete(f"/api/v1/projects/{proj_id}")
+    assert res_del.status_code == 204
 
 
 @pytest.mark.asyncio

@@ -54,8 +54,23 @@ BLOCKED_NETWORKS = [
 ]
 
 
-def validate_url_for_ssrf(url: str, allow_localhost: bool = False) -> None:
+def is_localhost_allowed() -> bool:
+    """Strictly verify dual-condition requirement for localhost evaluation targets."""
+    env_is_dev = os.getenv("ARL_ENVIRONMENT", "").strip().lower() == "development"
+    allow_localhost_env = os.getenv("ARL_ALLOW_LOCALHOST_TARGETS", "").strip().lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    return env_is_dev and allow_localhost_env
+
+
+def validate_url_for_ssrf(url: str) -> None:
     """Validate that the target URL does not resolve to private or cloud metadata IPs.
+
+    Localhost loopback is permitted ONLY when BOTH:
+    1. ARL_ENVIRONMENT=development
+    2. ARL_ALLOW_LOCALHOST_TARGETS=true
 
     Raises SecurityViolationError if target resolves to a forbidden range or contains embedded credentials.
     """
@@ -83,9 +98,21 @@ def validate_url_for_ssrf(url: str, allow_localhost: bool = False) -> None:
             resource=url,
         )
 
-    # Allow localhost only when explicitly enabled
-    if allow_localhost and hostname in ("localhost", "127.0.0.1", "::1"):
-        return
+    localhost_permitted = is_localhost_allowed()
+
+    # Fast-path localhost check
+    if hostname in ("localhost", "127.0.0.1", "::1"):
+        if localhost_permitted:
+            return
+        raise SecurityViolationError(
+            violation_type="LOCALHOST_PROHIBITED",
+            detail=(
+                "Targeting localhost is prohibited by default. To permit localhost in development, "
+                "you must set BOTH environment variables: ARL_ENVIRONMENT=development and "
+                "ARL_ALLOW_LOCALHOST_TARGETS=true."
+            ),
+            resource=url,
+        )
 
     try:
         # Resolve hostname to all IPv4 and IPv6 addresses
@@ -99,57 +126,61 @@ def validate_url_for_ssrf(url: str, allow_localhost: bool = False) -> None:
 
     for ip_str in ips:
         ip = ipaddress.ip_address(ip_str)
-        # Check standard properties
-        if (
-            ip.is_link_local
-            or ip.is_multicast
-            or ip.is_unspecified
-            or ip.is_reserved
-            or (ip.is_private and not (allow_localhost and ip.is_loopback))
-        ):
-            for net in BLOCKED_NETWORKS:
-                if ip in net:
-                    if allow_localhost and (ip.is_loopback or ip_str in ("127.0.0.1", "::1")):
-                        continue
-                    raise SecurityViolationError(
-                        violation_type="SSRF_PROTECTION",
-                        detail=f"SSRF protection: Target IP {ip_str} falls within blocked network {net}",
-                        resource=f"{url} ({ip_str})",
-                    )
-            # General private/reserved fallback
-            if not (allow_localhost and ip.is_loopback):
+
+        # Loopback check with strict dual-condition requirement
+        if ip.is_loopback:
+            if localhost_permitted:
+                continue
+            raise SecurityViolationError(
+                violation_type="LOCALHOST_PROHIBITED",
+                detail=(
+                    f"SSRF protection: Target IP {ip_str} resolves to loopback (localhost). "
+                    "Requires BOTH ARL_ENVIRONMENT=development and ARL_ALLOW_LOCALHOST_TARGETS=true."
+                ),
+                resource=f"{url} ({ip_str})",
+            )
+
+        # Block link-local, cloud metadata, multicast, unspecified, reserved
+        for net in BLOCKED_NETWORKS:
+            if ip in net:
                 raise SecurityViolationError(
                     violation_type="SSRF_PROTECTION",
-                    detail=f"SSRF protection: Target IP {ip_str} is reserved, private, or link-local",
+                    detail=f"SSRF protection: Target IP {ip_str} falls within blocked network {net}",
                     resource=f"{url} ({ip_str})",
                 )
 
+        if (
+            ip.is_private
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_unspecified
+            or ip.is_reserved
+        ):
+            raise SecurityViolationError(
+                violation_type="SSRF_PROTECTION",
+                detail=f"SSRF protection: Target IP {ip_str} is private, link-local, or reserved.",
+                resource=f"{url} ({ip_str})",
+            )
+
 
 class HttpAgentAdapter(AgentAdapter):
-    """HTTP Agent Adapter communicating with remote agent REST endpoints."""
+    """Production HTTP Agent Adapter conforming to Agent Reliability Lab Protocol v1.0."""
 
     def __init__(
         self,
         endpoint_url: str,
         timeout_seconds: float = 30.0,
-        allow_localhost: bool | None = None,
         headers: dict[str, str] | None = None,
         custom_client: httpx.AsyncClient | None = None,
     ) -> None:
         self.endpoint_url = endpoint_url
         self.timeout_seconds = timeout_seconds
-        # Localhost access requires explicit flag or development environment setting
-        is_dev = os.getenv("ARL_ENVIRONMENT") == "development"
-        allow_env = os.getenv("ARL_ALLOW_LOCALHOST_TARGETS", "").lower() in ("true", "1", "yes")
-        self.allow_localhost = (
-            allow_localhost if allow_localhost is not None else (is_dev and allow_env)
-        )
         self.headers = headers or {}
         self._custom_client = custom_client
         self._client: httpx.AsyncClient | None = custom_client
 
         if not custom_client:
-            validate_url_for_ssrf(self.endpoint_url, allow_localhost=self.allow_localhost)
+            validate_url_for_ssrf(self.endpoint_url)
 
     @property
     def adapter_id(self) -> str:
@@ -166,7 +197,13 @@ class HttpAgentAdapter(AgentAdapter):
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
-                timeout=httpx.Timeout(self.timeout_seconds, connect=10.0, read=self.timeout_seconds, write=10.0, pool=10.0),
+                timeout=httpx.Timeout(
+                    self.timeout_seconds,
+                    connect=10.0,
+                    read=self.timeout_seconds,
+                    write=10.0,
+                    pool=10.0,
+                ),
                 headers=self.headers,
                 follow_redirects=False,
             )
@@ -174,7 +211,7 @@ class HttpAgentAdapter(AgentAdapter):
 
     async def start_session(self, context: SessionContext) -> AgentSession:
         if not self._custom_client:
-            validate_url_for_ssrf(self.endpoint_url, allow_localhost=self.allow_localhost)
+            validate_url_for_ssrf(self.endpoint_url)
         client = await self._get_client()
 
         payload = {
@@ -204,7 +241,7 @@ class HttpAgentAdapter(AgentAdapter):
 
     async def send(self, session: AgentSession, message: AgentInput) -> AgentOutput:
         if not self._custom_client:
-            validate_url_for_ssrf(self.endpoint_url, allow_localhost=self.allow_localhost)
+            validate_url_for_ssrf(self.endpoint_url)
         client = await self._get_client()
 
         payload = {

@@ -30,9 +30,11 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [reportLoading, setReportLoading] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadRuns = async () => {
     setLoading(true);
+    setError(null);
     try {
       const runsData = await fetchRuns();
       setRuns(runsData);
@@ -41,8 +43,8 @@ export default function ReportsPage() {
         setSelectedRunId(first);
         loadReportForRun(first);
       }
-    } catch {
-      // Ignore
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load evaluation reports");
     } finally {
       setLoading(false);
     }
@@ -50,6 +52,7 @@ export default function ReportsPage() {
 
   const loadReportForRun = async (runId: string) => {
     setReportLoading(true);
+    setError(null);
     try {
       const [md, ev] = await Promise.all([
         fetchRunReport(runId, "markdown"),
@@ -57,9 +60,10 @@ export default function ReportsPage() {
       ]);
       setReportMarkdown(md);
       setEvidence(ev);
-    } catch {
+    } catch (err) {
       setReportMarkdown("");
       setEvidence(null);
+      setError(err instanceof Error ? err.message : "Failed to load report for selected run");
     } finally {
       setReportLoading(false);
     }
@@ -125,6 +129,23 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
+
+      {/* Backend Connection Error Banner */}
+      {error && (
+        <div className="bg-amber-950/40 border border-amber-800/60 rounded-xl p-5 flex items-start gap-4 text-amber-200">
+          <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 text-sm">
+            <p className="font-semibold text-amber-300">Backend Connection Error</p>
+            <p className="text-amber-300/80 mt-1">{error}</p>
+          </div>
+          <button
+            onClick={loadRuns}
+            className="px-3 py-1.5 bg-amber-900/60 hover:bg-amber-800 text-amber-100 text-xs font-medium rounded-lg transition"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Run Selection & Evidence Chain Bar */}
       {runs.length > 0 ? (

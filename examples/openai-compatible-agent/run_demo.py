@@ -54,9 +54,7 @@ async def evaluate_openai_endpoint(base_url: str, api_key: str, model: str) -> N
         allow_localhost=True,
     )
 
-    scenario_path = Path(
-        "scenarios/tool-correctness/01-order-lookup-correct-arguments.yaml"
-    )
+    scenario_path = Path("scenarios/tool-correctness/01-order-lookup-correct-arguments.yaml")
     scenario, _, _ = load_scenario(scenario_path)
 
     env = CustomerSupportEnvironment(seed=42)

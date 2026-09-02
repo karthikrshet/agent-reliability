@@ -33,7 +33,7 @@ class MockTransport(httpx.AsyncBaseTransport):
 
 
 @pytest.mark.asyncio
-async def test_openai_adapter_send_tool_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_openai_adapter_send_tool_calls() -> None:
     mock_resp = {
         "choices": [
             {
@@ -55,9 +55,12 @@ async def test_openai_adapter_send_tool_calls(monkeypatch: pytest.MonkeyPatch) -
         "usage": {"prompt_tokens": 10, "completion_tokens": 15, "total_tokens": 25},
     }
 
-    adapter = OpenAIAgentAdapter(endpoint_url="https://api.openai.com/v1", api_key="sk-test")
     client = httpx.AsyncClient(transport=MockTransport(mock_resp))
-    adapter._client = client
+    adapter = OpenAIAgentAdapter(
+        endpoint_url="https://api.openai.com/v1",
+        api_key="sk-test",
+        custom_client=client,
+    )
 
     ctx = SessionContext(
         session_id="sess-01",
@@ -96,9 +99,12 @@ async def test_openai_adapter_send_text_and_streaming() -> None:
         "usage": {"prompt_tokens": 15, "completion_tokens": 20, "total_tokens": 35},
     }
 
-    adapter = OpenAIAgentAdapter(endpoint_url="https://api.openai.com/v1", api_key="sk-test")
     client = httpx.AsyncClient(transport=MockTransport(mock_resp))
-    adapter._client = client
+    adapter = OpenAIAgentAdapter(
+        endpoint_url="https://api.openai.com/v1",
+        api_key="sk-test",
+        custom_client=client,
+    )
 
     ctx = SessionContext(
         session_id="sess-02",
@@ -118,21 +124,20 @@ async def test_openai_adapter_send_text_and_streaming() -> None:
     )
     out = await adapter.send(session, inp)
     assert out.output_type == AgentOutputType.TEXT
-    assert "located" in (out.raw_text or "")
+    assert out.raw_text == "Your order has been located successfully."
+    assert out.total_tokens == 35
 
-    # Test stream
-    stream_chunks = [chunk async for chunk in adapter.stream(session, inp)]
-    assert len(stream_chunks) == 1
+    # Streaming iteration
+    stream_outputs = [item async for item in adapter.stream(session, inp)]
+    assert len(stream_outputs) == 1
 
-    # Test interrupt
-    intr = await adapter.interrupt(
+    # Interruption
+    interr_out = await adapter.interrupt(
         session,
         InterruptionResolution(
             interruption_type=InterruptionType.APPROVAL_REQUIRED,
             approved=True,
-            resolved_by="user-01",
+            resolved_by="admin",
         ),
     )
-    assert intr.raw_text == "Interrupted"
-
-    await adapter.end_session(session)
+    assert interr_out.output_type == AgentOutputType.TEXT

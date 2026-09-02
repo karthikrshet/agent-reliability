@@ -86,9 +86,18 @@ async def test_evidence_and_report_endpoints(client: AsyncClient) -> None:
     assert res_rep_md.status_code == 200
     assert "# Agent Reliability Lab" in res_rep_md.text
 
-    # 7. Fetch Evidence chain
+    # 7. Invalid report format
+    res_rep_inv = await client.get(f"/api/v1/runs/{run_id}/report?format=pdf")
+    assert res_rep_inv.status_code in (400, 422)
+
+    # 8. Fetch Evidence chain
     res_ev = await client.get(f"/api/v1/runs/{run_id}/evidence")
     assert res_ev.status_code == 200
     data_ev = res_ev.json()
     assert data_ev["integrity_verified"] is True
     assert len(data_ev["blocks"]) >= 1
+
+    # 9. Cancel run
+    res_cancel = await client.post(f"/api/v1/runs/{run_id}/cancel")
+    assert res_cancel.status_code == 200
+    assert res_cancel.json()["state"] == "CANCELLED"

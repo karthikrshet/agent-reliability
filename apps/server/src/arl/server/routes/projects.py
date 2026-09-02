@@ -187,6 +187,57 @@ async def register_agent(
     )
 
 
+@router.patch("/{project_id}", response_model=ProjectResponse)
+async def update_project(
+    project_id: str,
+    req: CreateProjectRequest,
+    session: AsyncSession = Depends(get_db_session),
+) -> ProjectResponse:
+    """Update an existing project."""
+    stmt = select(ProjectModel).where(ProjectModel.id == project_id)
+    res = await session.execute(stmt)
+    proj = res.scalar_one_or_none()
+    if proj is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project '{project_id}' not found",
+        )
+    if req.name:
+        proj.name = req.name
+    if req.slug:
+        proj.slug = req.slug
+    if req.description:
+        proj.description = req.description
+    proj.updated_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(proj)
+    return ProjectResponse(
+        id=proj.id,
+        name=proj.name,
+        slug=proj.slug,
+        description=proj.description,
+        created_at=proj.created_at,
+    )
+
+
+@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project(
+    project_id: str,
+    session: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Delete a project workspace."""
+    stmt = select(ProjectModel).where(ProjectModel.id == project_id)
+    res = await session.execute(stmt)
+    proj = res.scalar_one_or_none()
+    if proj is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project '{project_id}' not found",
+        )
+    await session.delete(proj)
+    await session.commit()
+
+
 @router.get("/{project_id}/agents", response_model=list[AgentResponse])
 async def list_agents(
     project_id: str,
@@ -212,3 +263,74 @@ async def list_agents(
         )
         for a in agents
     ]
+
+
+@router.get("/{project_id}/agents/{agent_id}", response_model=AgentResponse)
+async def get_agent(
+    project_id: str,
+    agent_id: str,
+    session: AsyncSession = Depends(get_db_session),
+) -> AgentResponse:
+    """Get single agent definition."""
+    stmt = select(AgentDefinitionModel).where(
+        (AgentDefinitionModel.project_id == project_id) & (AgentDefinitionModel.id == agent_id)
+    )
+    res = await session.execute(stmt)
+    agent = res.scalar_one_or_none()
+    if agent is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Agent '{agent_id}' not found in project '{project_id}'",
+        )
+    return AgentResponse(
+        id=agent.id,
+        project_id=agent.project_id,
+        name=agent.name,
+        framework=agent.framework,
+        description=agent.description,
+        created_at=agent.created_at,
+    )
+
+
+class CreateVersionRequest(BaseModel):
+    version_tag: str
+    endpoint_url: str | None = None
+    model_config_data: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.post(
+    "/{project_id}/agents/{agent_id}/versions",
+    response_model=dict[str, Any],
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_agent_version(
+    project_id: str,
+    agent_id: str,
+    req: CreateVersionRequest,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, Any]:
+    """Create a new version for an existing agent."""
+    stmt = select(AgentDefinitionModel).where(
+        (AgentDefinitionModel.project_id == project_id) & (AgentDefinitionModel.id == agent_id)
+    )
+    res = await session.execute(stmt)
+    if res.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Agent '{agent_id}' not found",
+        )
+
+    vid = f"av-{uuid.uuid4().hex[:12]}"
+    ver = AgentVersionModel(
+        id=vid,
+        agent_definition_id=agent_id,
+        version_tag=req.version_tag,
+        endpoint_url=req.endpoint_url,
+        model_config_data=req.model_config_data,
+        metadata_=req.metadata,
+        created_at=datetime.now(UTC),
+    )
+    session.add(ver)
+    await session.commit()
+    return {"id": vid, "version_tag": req.version_tag, "agent_definition_id": agent_id}

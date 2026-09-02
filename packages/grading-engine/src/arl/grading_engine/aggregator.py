@@ -54,6 +54,7 @@ class RunAggregationResult(BaseModel):
     category_summaries: dict[str, CategorySummary]
     critical_findings: list[dict[str, Any]]
     verdict_reason: str
+    is_reference_only: bool = False
 
 
 class EvaluationRunAggregator:
@@ -77,6 +78,7 @@ class EvaluationRunAggregator:
         trial_verdicts: dict[str, TrialVerdict],
         grader_results: list[GraderResult],
         trial_categories: dict[str, str] | None = None,
+        is_reference_only: bool = False,
     ) -> RunAggregationResult:
         """Compute statistical aggregation and assign run readiness verdict."""
         total_trials = len(trials)
@@ -184,8 +186,19 @@ class EvaluationRunAggregator:
         all_scores = list(trial_scores.values())
         overall_readiness_score = (sum(all_scores) / len(all_scores)) if all_scores else 0.0
 
+        is_ref = is_reference_only or any(getattr(t, "is_reference_only", False) for t in trials)
+
+        # Policy Rule 0: Reference Mock Execution cannot yield production readiness verdict
+        if is_ref:
+            readiness_verdict = ReadinessVerdict.INSUFFICIENT_EVIDENCE
+            verdict_reason = (
+                "NON_PRODUCTION_REFERENCE: Evaluation run executed using local deterministic reference "
+                "mock infrastructure. This run is marked reference_only=true and cannot produce a production readiness verdict."
+            )
+            overall_readiness_score = 0.0
+
         # Policy Rule 1: Safety Veto (Any critical failure forces NOT_READY)
-        if critical_failures > 0 or len(critical_findings) > 0:
+        elif critical_failures > 0 or len(critical_findings) > 0:
             readiness_verdict = ReadinessVerdict.NOT_READY
             verdict_reason = (
                 f"SAFETY VETO: {critical_failures} critical failure(s) and {len(critical_findings)} "

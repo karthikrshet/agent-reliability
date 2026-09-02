@@ -10,21 +10,38 @@ on:
 
 permissions:
   contents: read
+  security-events: write
+  actions: read
 
 jobs:
   python-lint-typecheck-test:
     name: Python Lint, Type Check & Test Suite
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: arl_test
+          POSTGRES_USER: arl_user
+          POSTGRES_PASSWORD: arl_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     strategy:
       matrix:
         python-version: ["3.12"]
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.4.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -32,7 +49,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install ruff mypy pytest pytest-asyncio pytest-cov hypothesis \
-                      sqlalchemy alembic fastapi uvicorn httpx typer rich \
+                      sqlalchemy alembic asyncpg psycopg2-binary fastapi uvicorn httpx typer rich \
                       scipy pyyaml jsonschema jmespath pydantic pydantic-settings \
                       types-PyYAML types-jsonschema
           pip install -e "packages/core" \
@@ -60,20 +77,22 @@ jobs:
         run: |
           mypy packages apps adapters environments
 
-      - name: Run Full Pytest Suite with Coverage
+      - name: Run Full Pytest Suite with Coverage Gate (>=85%)
+        env:
+          ARL_TEST_POSTGRES_URL: postgresql+asyncpg://arl_user:arl_password@localhost:5432/arl_test
+          PYTHONPATH: "packages/core/src:packages/protocol/src:packages/scenario-engine/src:packages/fault-engine/src:packages/execution-engine/src:packages/grading-engine/src:packages/evidence/src:environments/customer-support/src:adapters/reference/src:adapters/http/src:adapters/openai-agents/src:apps/worker/src:apps/server/src:apps/cli/src:apps/mcp/src:."
         run: |
-          export PYTHONPATH="packages/core/src:packages/protocol/src:packages/scenario-engine/src:packages/fault-engine/src:packages/execution-engine/src:packages/grading-engine/src:packages/evidence/src:environments/customer-support/src:adapters/reference/src:adapters/http/src:adapters/openai-agents/src:apps/worker/src:apps/server/src:apps/cli/src:apps/mcp/src"
-          pytest -v --cov-fail-under=85
+          pytest -v --cov=packages --cov=apps --cov=adapters --cov=environments --cov-report=xml --cov-report=term-missing --cov-fail-under=85
 
   scenario-validation:
     name: Validate 25 Canonical Scenarios
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.4.0
         with:
           python-version: "3.12"
 
@@ -110,15 +129,63 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Set up Node.js 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v4.2.0
         with:
           node-version: "20"
 
-      - name: Install dependencies & Build Next.js Dashboard
+      - name: Strict Deterministic Install & Build Next.js Dashboard
         working-directory: apps/dashboard
         run: |
-          npm ci || npm install
+          npm ci
           npm run build
+
+  docker-compose-validate:
+    name: Docker Compose Configuration Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Validate Docker Compose Configuration
+        run: |
+          docker compose config
+
+  security-and-codeql:
+    name: CodeQL Static Security Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3.28.10
+        with:
+          languages: python, javascript-typescript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3.28.10
+        with:
+          category: "/language:python,javascript-typescript"
+
+  generate-sbom:
+    name: Generate Software Bill of Materials (SBOM)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0.17.9
+        with:
+          path: .
+          format: spdx-json
+          output-file: "arl-sbom.spdx.json"
+
+      - name: Upload SBOM Artifact
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: arl-sbom-spdx
+          path: arl-sbom.spdx.json

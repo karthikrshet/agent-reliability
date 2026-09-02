@@ -110,6 +110,11 @@ class Trial(BaseModel):
         ),
     )
 
+    is_reference_only: bool = Field(
+        default=False,
+        description="True if executed with local mock/reference adapter. Cannot yield production readiness verdicts.",
+    )
+
     metadata: dict[str, str] = Field(default_factory=dict)
 
 

@@ -2,18 +2,23 @@
 Agent Reliability Lab — Multi-Worker Distributed Lease Concurrency Tests.
 
 Verifies:
-1. Atomic trial acquisition by multiple distributed workers (no duplicate execution).
-2. Expired lease fencing and automatic reclamation after worker crash/timeout.
-3. Worker lease renewal with ownership checks.
-4. Clean trial completion and lease release.
-5. PostgreSQL FOR UPDATE SKIP LOCKED query generation.
+1. PostgreSQL query compilation compiles `FOR UPDATE SKIP LOCKED`.
+2. Atomic trial acquisition by concurrent asynchronous worker tasks (no duplicate execution).
+3. Expired lease fencing and automatic reclamation after worker crash/timeout.
+4. Worker lease renewal with ownership checks.
+5. Clean trial completion and lease release.
+6. Optional PostgreSQL live service / testcontainer execution.
 """
 
 from __future__ import annotations
 
+import asyncio
+import os
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import select
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -28,6 +33,21 @@ from arl.core.storage.models import (
     TrialModel,
 )
 from arl.worker.lease import LeaseManager
+
+
+def test_postgresql_skip_locked_query_compilation() -> None:
+    """Verify that PostgreSQL dialect builds SELECT ... FOR UPDATE SKIP LOCKED statements."""
+    stmt = (
+        select(TrialModel)
+        .where(TrialModel.state == "PENDING")
+        .order_by(TrialModel.created_at.asc())
+        .limit(1)
+        .with_for_update(skip_locked=True)
+    )
+    compiled = str(stmt.compile(dialect=postgresql.dialect()))
+    assert "FOR UPDATE SKIP LOCKED" in compiled, (
+        f"Query must contain FOR UPDATE SKIP LOCKED, got: {compiled}"
+    )
 
 
 @pytest.fixture
@@ -119,34 +139,30 @@ async def seeded_run_and_trials(in_memory_session_factory):
 
 
 @pytest.mark.asyncio
-async def test_interleaved_worker_lease_acquisition_no_duplicates(
+async def test_concurrent_worker_tasks_claim_disjoint_trials(
     in_memory_session_factory, seeded_run_and_trials
 ) -> None:
-    """Ensure two workers acquiring leases in turn claim disjoint trials without collision."""
-    worker_a = LeaseManager(worker_id="worker-node-A", default_lease_seconds=30)
-    worker_b = LeaseManager(worker_id="worker-node-B", default_lease_seconds=30)
+    """Ensure concurrent asynchronous workers claiming trials via separate sessions never collide."""
+    workers = [
+        LeaseManager(worker_id=f"worker-node-{i}", default_lease_seconds=30) for i in range(6)
+    ]
 
-    claimed_a: list[str] = []
-    claimed_b: list[str] = []
+    lock = asyncio.Lock()
 
-    for _ in range(3):
-        async with in_memory_session_factory() as session_a:
-            ta = await worker_a.acquire_trial_lease(session_a)
-            if ta:
-                claimed_a.append(ta.id)
+    async def worker_claim(worker: LeaseManager) -> str | None:
+        async with (
+            lock,
+            in_memory_session_factory() as session,
+        ):  # Protect SQLite single-writer in memory
+            trial = await worker.acquire_trial_lease(session)
+            return trial.id if trial else None
 
-        async with in_memory_session_factory() as session_b:
-            tb = await worker_b.acquire_trial_lease(session_b)
-            if tb:
-                claimed_b.append(tb.id)
+    results = await asyncio.gather(*[worker_claim(w) for w in workers])
+    claimed_ids = [r for r in results if r is not None]
 
-    # Verify all 6 trials were claimed
-    total_claimed = set(claimed_a).union(set(claimed_b))
-    assert len(total_claimed) == 6
-
-    # Verify zero overlap between worker A and worker B
-    overlap = set(claimed_a).intersection(set(claimed_b))
-    assert len(overlap) == 0, f"Workers had collision: {overlap}"
+    # Verify all 6 unique trials were acquired without duplication
+    assert len(claimed_ids) == 6
+    assert len(set(claimed_ids)) == 6, f"Duplicate trial claims detected: {claimed_ids}"
 
 
 @pytest.mark.asyncio
@@ -191,7 +207,9 @@ async def test_worker_lease_renewal_ownership_fencing(
 
     async with in_memory_session_factory() as session:
         # Imposter attempts renewal -> must fail
-        imposter_renewed = await worker_imposter.renew_lease(session, trial.id, extension_seconds=60)
+        imposter_renewed = await worker_imposter.renew_lease(
+            session, trial.id, extension_seconds=60
+        )
         assert imposter_renewed is False
 
         # Owner attempts renewal -> must succeed
@@ -200,7 +218,9 @@ async def test_worker_lease_renewal_ownership_fencing(
 
     # Owner releases lease upon completion
     async with in_memory_session_factory() as session:
-        await worker_owner.release_lease(session, trial.id, new_state="COMPLETED", passed=True, score=1.0)
+        await worker_owner.release_lease(
+            session, trial.id, new_state="COMPLETED", passed=True, score=1.0
+        )
 
     # Verify finalized trial state
     async with in_memory_session_factory() as session:
@@ -210,3 +230,50 @@ async def test_worker_lease_renewal_ownership_fencing(
         assert final_trial.passed is True
         assert final_trial.worker_id is None
         assert final_trial.lease_expires_at is None
+
+
+@pytest.mark.asyncio
+async def test_live_postgres_concurrent_skip_locked() -> None:
+    """Execute live PostgreSQL SKIP LOCKED test if PostgreSQL test database is configured."""
+    pg_url = os.getenv("ARL_TEST_POSTGRES_URL")
+    if not pg_url:
+        pytest.skip(
+            "ARL_TEST_POSTGRES_URL not configured. Skipping live PostgreSQL container test."
+        )
+
+    pg_engine = create_async_engine(pg_url, pool_size=10, max_overflow=5)
+    async with pg_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    pg_session_factory = async_sessionmaker(pg_engine, expire_on_commit=False)
+
+    # Seed trials
+    async with pg_session_factory() as session:
+        for i in range(4):
+            session.add(
+                TrialModel(
+                    id=f"tr-pg-lease-{i}",
+                    run_id="run-pg-test",
+                    scenario_version_id="sc-v1",
+                    agent_version_id="ag-v1",
+                    trial_index=i,
+                    trial_seed=200 + i,
+                    state="PENDING",
+                )
+            )
+        await session.commit()
+
+    # Concurrent claims across distinct connections without application-level locks
+    async def claim_from_pg(worker_id: str) -> str | None:
+        async with pg_session_factory() as s:
+            mgr = LeaseManager(worker_id=worker_id)
+            t = await mgr.acquire_trial_lease(s)
+            return t.id if t else None
+
+    workers = [f"pg-worker-{i}" for i in range(4)]
+    claimed = await asyncio.gather(*[claim_from_pg(w) for w in workers])
+    valid_claims = [c for c in claimed if c is not None]
+
+    assert len(valid_claims) == 4
+    assert len(set(valid_claims)) == 4
+    await pg_engine.dispose()

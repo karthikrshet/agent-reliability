@@ -108,9 +108,10 @@ class ExecutionWorker:
         # 3. Instantiate adapter explicitly based on framework and configuration
         adapter: AgentAdapter
         fw = (agent_def.framework if agent_def else "").lower()
-        if fw in ("http", "rest") or (not fw and agent_ver.endpoint_url):
+        is_reference_only = False
+        if fw == "http":
             if not agent_ver.endpoint_url:
-                logger.error("HTTP adapter requires endpoint_url for agent %s", agent_ver.id)
+                logger.error("HTTP agent version %s missing endpoint_url", agent_ver.id)
                 await self.lease_manager.release_lease(session, trial_id, new_state="FAILED")
                 return
             adapter = HttpAgentAdapter(endpoint_url=agent_ver.endpoint_url)
@@ -124,6 +125,7 @@ class ExecutionWorker:
                 api_key=cfg.get("api_key"),
             )
         elif fw in ("reference", "mock"):
+            is_reference_only = True
             adapter = MockAgentAdapter()
         else:
             logger.error("Unsupported adapter framework '%s' for agent %s", fw, agent_ver.id)
@@ -138,6 +140,7 @@ class ExecutionWorker:
             idempotency_key=f"idemp-{trial_model.id}",
             fault_seed=trial_model.trial_seed,
             worker_id=self.worker_id,
+            is_reference_only=is_reference_only,
         )
 
         executor = TrialExecutor(

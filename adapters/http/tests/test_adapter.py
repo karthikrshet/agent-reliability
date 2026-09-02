@@ -37,9 +37,8 @@ async def test_http_adapter_turn_success() -> None:
             )
         return httpx.Response(404)
 
-    adapter = HttpAgentAdapter(endpoint_url="http://localhost:8080", allow_localhost=True)
-    # Inject mock client
-    adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    mock_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = HttpAgentAdapter(endpoint_url="http://localhost:8080", custom_client=mock_client)
 
     context = SessionContext(
         session_id="s-http-1",
@@ -74,8 +73,8 @@ async def test_http_adapter_error_handling() -> None:
             return httpx.Response(500, json={"error": "Model overloaded"})
         return httpx.Response(200, json={})
 
-    adapter = HttpAgentAdapter(endpoint_url="http://localhost:8080", allow_localhost=True)
-    adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    mock_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = HttpAgentAdapter(endpoint_url="http://localhost:8080", custom_client=mock_client)
 
     context = SessionContext(
         session_id="s-http-2",
@@ -101,8 +100,8 @@ async def test_http_adapter_resume_and_cancel() -> None:
             return httpx.Response(200, json={"text": "Approved action executed."})
         return httpx.Response(200, json={})
 
-    adapter = HttpAgentAdapter(endpoint_url="http://localhost:8080", allow_localhost=True)
-    adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    mock_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = HttpAgentAdapter(endpoint_url="http://localhost:8080", custom_client=mock_client)
 
     session = await adapter.start_session(
         SessionContext(

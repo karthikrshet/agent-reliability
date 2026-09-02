@@ -34,9 +34,18 @@ class ReportGenerator:
             "schema_version": "1.0",
             "run_id": self.res.run_id,
             "generated_at": datetime.now(UTC).isoformat(),
-            "verdict": self.res.readiness_verdict.value,
+            "reference_only": self.res.is_reference_only,
+            "verdict": "NON_PRODUCTION_REFERENCE"
+            if self.res.is_reference_only
+            else self.res.readiness_verdict.value,
             "readiness_score": self.res.readiness_score,
             "verdict_reason": self.res.verdict_reason,
+            "provenance": {
+                "reference_only": self.res.is_reference_only,
+                "infrastructure": "MockAgentAdapter"
+                if self.res.is_reference_only
+                else "LiveAgentAdapter",
+            },
             "statistics": {
                 "total_trials": self.res.total_trials,
                 "completed_trials": self.res.completed_trials,
@@ -67,13 +76,16 @@ class ReportGenerator:
 
     def generate_markdown_report(self) -> str:
         """Generate formatted GitHub Flavored Markdown audit report."""
-        v = self.res.readiness_verdict
-        if v == ReadinessVerdict.READY:
-            badge = "🟢 **READY FOR PRODUCTION**"
-        elif v == ReadinessVerdict.NOT_READY:
-            badge = "🔴 **NOT READY FOR PRODUCTION**"
+        if self.res.is_reference_only:
+            badge = "🟡 **NON-PRODUCTION REFERENCE RUN (NO VERDICT ASSIGNED)**"
         else:
-            badge = "🟡 **INSUFFICIENT EVIDENCE**"
+            v = self.res.readiness_verdict
+            if v == ReadinessVerdict.READY:
+                badge = "🟢 **READY FOR PRODUCTION**"
+            elif v == ReadinessVerdict.NOT_READY:
+                badge = "🔴 **NOT READY FOR PRODUCTION**"
+            else:
+                badge = "🟡 **INSUFFICIENT EVIDENCE**"
 
         lines = [
             "# Agent Reliability Lab — Evaluation Audit Report",
@@ -83,19 +95,35 @@ class ReportGenerator:
             f"**Readiness Verdict**: {badge}  ",
             f"**Readiness Score**: `{self.res.readiness_score:.2%}`  ",
             "",
-            "> [!IMPORTANT]",
-            "> **Verdict Decision Rationale**:  ",
-            f"> {self.res.verdict_reason}",
-            "",
-            "---",
-            "",
-            "## 1. Statistical Summary & Confidence Intervals",
-            "",
-            "| Metric | Value | 95% Confidence Interval / Detail |",
-            "| :--- | :--- | :--- |",
-            f"| **Overall Pass Rate** | **{self.res.pass_rate:.1%}** | `[{self.res.pass_rate_ci_lower:.1%}, {self.res.pass_rate_ci_upper:.1%}]` (Wilson Score) |",
-            f"| **Pass@1** | **{self.res.pass_at_1:.3f}** | Unbiased binomial estimator |",
         ]
+
+        if self.res.is_reference_only:
+            lines.extend(
+                [
+                    "> [!WARNING]",
+                    "> **NON-PRODUCTION REFERENCE RUN**: This evaluation was executed using deterministic local reference",
+                    "> mock infrastructure. It does NOT evaluate a live AI agent model and CANNOT be used for production",
+                    "> readiness assertions or benchmark claims.",
+                    "",
+                ]
+            )
+
+        lines.extend(
+            [
+                "> [!IMPORTANT]",
+                "> **Verdict Decision Rationale**:  ",
+                f"> {self.res.verdict_reason}",
+                "",
+                "---",
+                "",
+                "## 1. Statistical Summary & Confidence Intervals",
+                "",
+                "| Metric | Value | 95% Confidence Interval / Detail |",
+                "| :--- | :--- | :--- |",
+                f"| **Overall Pass Rate** | **{self.res.pass_rate:.1%}** | `[{self.res.pass_rate_ci_lower:.1%}, {self.res.pass_rate_ci_upper:.1%}]` (Wilson Score) |",
+                f"| **Pass@1** | **{self.res.pass_at_1:.3f}** | Unbiased binomial estimator |",
+            ]
+        )
 
         if self.res.pass_at_3 is not None:
             lines.append(

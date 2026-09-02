@@ -117,6 +117,78 @@ export class ApiError extends Error {
   }
 }
 
+function validateProject(data: unknown): Project {
+  if (!data || typeof data !== "object") {
+    throw new Error("Invalid Project payload: expected object");
+  }
+  const p = data as Record<string, unknown>;
+  if (typeof p.id !== "string" || typeof p.name !== "string") {
+    throw new Error("Invalid Project payload: missing id or name");
+  }
+  return {
+    id: p.id,
+    name: p.name,
+    slug: typeof p.slug === "string" ? p.slug : p.id,
+    description: typeof p.description === "string" ? p.description : undefined,
+    created_at: typeof p.created_at === "string" ? p.created_at : new Date().toISOString(),
+  };
+}
+
+function validateScenarioSummary(data: unknown): ScenarioSummary {
+  if (!data || typeof data !== "object") {
+    throw new Error("Invalid Scenario payload: expected object");
+  }
+  const s = data as Record<string, unknown>;
+  if (typeof s.id !== "string") {
+    throw new Error("Invalid Scenario payload: missing id");
+  }
+  return {
+    id: s.id,
+    title: typeof s.title === "string" ? s.title : s.id,
+    category: typeof s.category === "string" ? s.category : "general",
+    severity: (["low", "medium", "high", "critical"].includes(s.severity as string)
+      ? s.severity
+      : "medium") as ScenarioSummary["severity"],
+    max_turns: typeof s.max_turns === "number" ? s.max_turns : 10,
+    max_tool_calls: typeof s.max_tool_calls === "number" ? s.max_tool_calls : 20,
+    fault_count: typeof s.fault_count === "number" ? s.fault_count : 0,
+    tags: Array.isArray(s.tags) ? s.tags.map(String) : [],
+  };
+}
+
+function validateEvaluationRun(data: unknown): EvaluationRun {
+  if (!data || typeof data !== "object") {
+    throw new Error("Invalid EvaluationRun payload: expected object");
+  }
+  const r = data as Record<string, unknown>;
+  if (typeof r.id !== "string") {
+    throw new Error("Invalid EvaluationRun payload: missing id");
+  }
+  return {
+    id: r.id,
+    project_id: typeof r.project_id === "string" ? r.project_id : undefined,
+    agent_version_id: typeof r.agent_version_id === "string" ? r.agent_version_id : undefined,
+    state: (["PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"].includes(r.state as string)
+      ? r.state
+      : "PENDING") as EvaluationRun["state"],
+    total_trials: typeof r.total_trials === "number" ? r.total_trials : 0,
+    completed_trials: typeof r.completed_trials === "number" ? r.completed_trials : 0,
+    passed_trials: typeof r.passed_trials === "number" ? r.passed_trials : 0,
+    failed_trials: typeof r.failed_trials === "number" ? r.failed_trials : 0,
+    pass_rate: typeof r.pass_rate === "number" ? r.pass_rate : 0.0,
+    pass_rate_ci_lower: typeof r.pass_rate_ci_lower === "number" ? r.pass_rate_ci_lower : undefined,
+    pass_rate_ci_upper: typeof r.pass_rate_ci_upper === "number" ? r.pass_rate_ci_upper : undefined,
+    pass_at_1: typeof r.pass_at_1 === "number" ? r.pass_at_1 : undefined,
+    pass_at_3: typeof r.pass_at_3 === "number" ? r.pass_at_3 : undefined,
+    readiness_verdict: typeof r.readiness_verdict === "string" ? r.readiness_verdict : undefined,
+    readiness_score: typeof r.readiness_score === "number" ? r.readiness_score : undefined,
+    verdict_reason: typeof r.verdict_reason === "string" ? r.verdict_reason : undefined,
+    created_at: typeof r.created_at === "string" ? r.created_at : new Date().toISOString(),
+    started_at: typeof r.started_at === "string" ? r.started_at : undefined,
+    completed_at: typeof r.completed_at === "string" ? r.completed_at : undefined,
+  };
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
@@ -124,14 +196,22 @@ async function request<T>(
   const url = `${API_BASE_URL}${path}`;
   const correlationId = `req-${Math.random().toString(36).substring(2, 9)}`;
 
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "X-Correlation-ID": correlationId,
-      ...options.headers,
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Correlation-ID": correlationId,
+        ...options.headers,
+      },
+    });
+  } catch (err) {
+    throw new ApiError(
+      0,
+      `Network connection failure connecting to ARL backend at ${API_BASE_URL}: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
 
   if (!res.ok) {
     let errorDetail = "";
@@ -160,33 +240,34 @@ export async function fetchHealth(): Promise<{ status: string }> {
 }
 
 export async function fetchProjects(): Promise<Project[]> {
-  try {
-    return await request<Project[]>("/api/v1/projects");
-  } catch {
-    return [];
+  const data = await request<unknown[]>("/api/v1/projects");
+  if (!Array.isArray(data)) {
+    throw new Error("Invalid response: expected array of projects");
   }
+  return data.map(validateProject);
 }
 
 export async function fetchScenarios(): Promise<ScenarioSummary[]> {
-  try {
-    return await request<ScenarioSummary[]>("/api/v1/scenarios");
-  } catch {
-    return [];
+  const data = await request<unknown[]>("/api/v1/scenarios");
+  if (!Array.isArray(data)) {
+    throw new Error("Invalid response: expected array of scenarios");
   }
+  return data.map(validateScenarioSummary);
 }
 
 export async function fetchRuns(projectId?: string): Promise<EvaluationRun[]> {
   const q = projectId ? `?project_id=${projectId}` : "";
-  try {
-    return await request<EvaluationRun[]>(`/api/v1/runs${q}`);
-  } catch {
-    return [];
+  const data = await request<unknown[]>(`/api/v1/runs${q}`);
+  if (!Array.isArray(data)) {
+    throw new Error("Invalid response: expected array of runs");
   }
+  return data.map(validateEvaluationRun);
 }
 
 export async function fetchRun(runId: string): Promise<EvaluationRun | null> {
   try {
-    return await request<EvaluationRun>(`/api/v1/runs/${runId}`);
+    const data = await request<unknown>(`/api/v1/runs/${runId}`);
+    return validateEvaluationRun(data);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) {
       return null;
@@ -196,11 +277,11 @@ export async function fetchRun(runId: string): Promise<EvaluationRun | null> {
 }
 
 export async function fetchRunTrials(runId: string): Promise<TrialDetail[]> {
-  try {
-    return await request<TrialDetail[]>(`/api/v1/runs/${runId}/trials`);
-  } catch {
-    return [];
+  const data = await request<TrialDetail[]>(`/api/v1/runs/${runId}/trials`);
+  if (!Array.isArray(data)) {
+    throw new Error("Invalid response: expected array of trials");
   }
+  return data;
 }
 
 export async function fetchRunReport(
@@ -215,9 +296,13 @@ export async function fetchRunEvidence(
   runId: string
 ): Promise<EvidenceChain | null> {
   try {
-    return await request<EvidenceChain>(`/api/v1/runs/${runId}/evidence`);
-  } catch {
-    return null;
+    const data = await request<EvidenceChain>(`/api/v1/runs/${runId}/evidence`);
+    return data;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      return null;
+    }
+    throw err;
   }
 }
 
@@ -228,10 +313,11 @@ export async function createRun(payload: {
   trials_per_scenario?: number;
   seed?: number;
 }): Promise<EvaluationRun> {
-  return request<EvaluationRun>("/api/v1/runs", {
+  const data = await request<unknown>("/api/v1/runs", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  return validateEvaluationRun(data);
 }
 
 export async function cancelRun(runId: string): Promise<{ status: string }> {

@@ -357,7 +357,9 @@ class MCPServer:
                                 "reference_only": reference_only,
                                 "adapter_type": adapter.framework,
                                 "passed": verdict.value == "pass",
-                                "verdict": "NON_PRODUCTION_REFERENCE" if reference_only else verdict.value,
+                                "verdict": "NON_PRODUCTION_REFERENCE"
+                                if reference_only
+                                else verdict.value,
                                 "score": score,
                                 "turns_consumed": len(exec_res.turns),
                                 "tool_calls_executed": len(exec_res.tool_calls),
