@@ -58,11 +58,26 @@ def test_pass_at_k_exact_properties() -> None:
         assert compute_pass_at_k(n=5, c=0, k=k) == 0.0
 
     # Pass@k must be monotonically increasing with k
-    n, c = 20, 10
-    p_k1 = compute_pass_at_k(n, c, k=1)
-    p_k3 = compute_pass_at_k(n, c, k=3)
-    p_k5 = compute_pass_at_k(n, c, k=5)
-    assert p_k1 < p_k3 < p_k5
+    n = 10
+    c = 3
+    p1 = compute_pass_at_k(n, c, 1)
+    p2 = compute_pass_at_k(n, c, 2)
+    p3 = compute_pass_at_k(n, c, 3)
+    assert p1 < p2 < p3
+
+
+@pytest.mark.unit
+def test_wilson_known_reference_values() -> None:
+    """Validate Wilson score against standard textbook and SciPy reference values."""
+    # 80 successes out of 100 at 95% confidence
+    lower, upper = compute_wilson_score_interval(successes=80, trials=100, confidence=0.95)
+    assert lower == pytest.approx(0.7115, abs=0.005)
+    assert upper == pytest.approx(0.8666, abs=0.005)
+
+    # 1 success out of 10 at 95% confidence
+    l1, u1 = compute_wilson_score_interval(successes=1, trials=10, confidence=0.95)
+    assert l1 == pytest.approx(0.0179, abs=0.005)
+    assert u1 == pytest.approx(0.4041, abs=0.005)
 
 
 @pytest.mark.unit

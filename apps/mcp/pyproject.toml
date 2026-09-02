@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "arl-mcp"
 version = "0.1.0"
 description = "Model Context Protocol (MCP) server for Agent Reliability Lab"
-readme = "README.md"
+license = "MIT"
 requires-python = ">=3.12"
 authors = [
     { name = "Karthik Rajesh Shet", email = "kartikrshet@gmail.com" }
@@ -25,3 +25,6 @@ dependencies = [
 
 [project.scripts]
 arl-mcp = "arl.mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/arl"]

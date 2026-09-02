@@ -245,6 +245,34 @@ class InfrastructureError(ARLError):
         )
 
 
+class AgentCommunicationError(InfrastructureError):
+    """Failed to communicate with the target agent endpoint over transport."""
+
+    def __init__(self, message: str, endpoint_url: str = "", **context: Any) -> None:
+        super().__init__(
+            message=f"Agent communication failure at {endpoint_url}: {message}"
+            if endpoint_url
+            else f"Agent communication failure: {message}",
+            component="AgentAdapter",
+            endpoint_url=endpoint_url,
+            **context,
+        )
+
+
+class AgentExecutionError(InfrastructureError):
+    """Target agent returned an unrecoverable execution or protocol error."""
+
+    def __init__(self, message: str, agent_version_id: str = "", **context: Any) -> None:
+        super().__init__(
+            message=f"Agent execution error [{agent_version_id}]: {message}"
+            if agent_version_id
+            else f"Agent execution error: {message}",
+            component="AgentAdapter",
+            agent_version_id=agent_version_id,
+            **context,
+        )
+
+
 class WorkerLeaseError(InfrastructureError):
     """A worker lease operation failed.
 

@@ -1,0 +1,26 @@
+name: Adapter Proposal
+description: Propose or contribute an adapter for an AI agent framework
+title: "[ADAPTER]: "
+labels: ["adapter", "integration"]
+body:
+  - type: input
+    id: framework
+    attributes:
+      label: Framework Name
+      placeholder: LangGraph, CrewAI, AutoGen, LlamaIndex, Semantic Kernel
+    validations:
+      required: true
+  - type: textarea
+    id: overview
+    attributes:
+      label: Framework Integration Details
+      description: How does this framework expose multi-turn conversations and tool execution hooks?
+    validations:
+      required: true
+  - type: textarea
+    id: auth_and_isolation
+    attributes:
+      label: Security & Transport Details
+      description: Does this framework operate in-process via Python SDK or over remote HTTP/gRPC?
+    validations:
+      required: true

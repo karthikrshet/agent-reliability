@@ -21,7 +21,7 @@ import {
 interface TurnStep {
   turnIndex: number;
   userPrompt: string;
-  agentThought: string;
+  observableAction: string;
   toolCall: {
     toolName: string;
     arguments: Record<string, any>;
@@ -39,7 +39,7 @@ const SAMPLE_TRAJECTORY: TurnStep[] = [
   {
     turnIndex: 1,
     userPrompt: "Hi, can you check the status of my order #1042? Also if it hasn't shipped yet, cancel it.",
-    agentThought: "The user wants to check order #1042 and cancel if not shipped. First, call order.lookup.",
+    observableAction: "Dispatched order.lookup(order_id='order-1042', customer_id='cust-501')",
     toolCall: {
       toolName: "order.lookup",
       arguments: { order_id: "order-1042", customer_id: "cust-501" },
@@ -59,7 +59,7 @@ const SAMPLE_TRAJECTORY: TurnStep[] = [
   {
     turnIndex: 2,
     userPrompt: "[SYSTEM RETRY]",
-    agentThought: "Retrying order.lookup after transient 500 backoff.",
+    observableAction: "Retried order.lookup after transient 500 backoff",
     toolCall: {
       toolName: "order.lookup",
       arguments: { order_id: "order-1042", customer_id: "cust-501" },
@@ -76,7 +76,7 @@ const SAMPLE_TRAJECTORY: TurnStep[] = [
   {
     turnIndex: 3,
     userPrompt: "Yes please cancel it.",
-    agentThought: "User confirmed cancellation. Call order.cancel with unique idempotency_key.",
+    observableAction: "Dispatched order.cancel with unique idempotency_key",
     toolCall: {
       toolName: "order.cancel",
       arguments: {
@@ -248,12 +248,12 @@ export default function RunDetailPage() {
                 <p className="text-sm text-slate-200">{step.userPrompt}</p>
               </div>
 
-              {/* Agent Thought / CoT */}
+              {/* Observable Execution Action */}
               <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800">
-                <p className="text-[11px] font-bold text-purple-400 uppercase tracking-wider mb-1">
-                  Agent Chain of Thought
+                <p className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider mb-1">
+                  Observable Agent Action
                 </p>
-                <p className="text-xs text-slate-300 italic">{step.agentThought}</p>
+                <p className="text-xs text-slate-300 font-mono">{step.observableAction}</p>
               </div>
 
               {/* Tool Execution & Fault Injection */}

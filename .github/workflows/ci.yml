@@ -39,6 +39,7 @@ jobs:
                       -e "environments/customer-support" \
                       -e "adapters/reference" \
                       -e "adapters/http" \
+                      -e "adapters/openai-agents" \
                       -e "apps/worker" \
                       -e "apps/server" \
                       -e "apps/cli" \
@@ -55,7 +56,7 @@ jobs:
 
       - name: Run Full Pytest Suite with Coverage
         run: |
-          export PYTHONPATH="packages/core/src:packages/protocol/src:packages/scenario-engine/src:packages/fault-engine/src:packages/execution-engine/src:packages/grading-engine/src:packages/evidence/src:environments/customer-support/src:adapters/reference/src:adapters/http/src:apps/worker/src:apps/server/src:apps/cli/src:apps/mcp/src"
+          export PYTHONPATH="packages/core/src:packages/protocol/src:packages/scenario-engine/src:packages/fault-engine/src:packages/execution-engine/src:packages/grading-engine/src:packages/evidence/src:environments/customer-support/src:adapters/reference/src:adapters/http/src:adapters/openai-agents/src:apps/worker/src:apps/server/src:apps/cli/src:apps/mcp/src"
           pytest -v --cov-fail-under=85
 
   scenario-validation:

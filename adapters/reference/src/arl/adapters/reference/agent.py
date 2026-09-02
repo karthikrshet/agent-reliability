@@ -98,6 +98,9 @@ class MockAgentAdapter(AgentAdapter):
     async def close_session(self, session: AgentSession) -> None:
         self.closed_sessions.append(session.session_id)
 
+    async def end_session(self, session: AgentSession) -> None:
+        await self.close_session(session)
+
     @classmethod
     def with_single_tool_call(
         cls,
