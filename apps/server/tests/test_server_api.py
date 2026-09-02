@@ -149,10 +149,18 @@ async def test_runs_and_evidence_lifecycle(client: AsyncClient) -> None:
     run_id = run_data["id"]
     assert run_data["total_trials"] == 2
 
-    # 2. Get run status
+    # 2. Get run status and list runs
     res_get_run = await client.get(f"/api/v1/runs/{run_id}")
     assert res_get_run.status_code == 200
     assert res_get_run.json()["id"] == run_id
+
+    res_runs_all = await client.get("/api/v1/runs")
+    assert res_runs_all.status_code == 200
+    assert len(res_runs_all.json()) >= 1
+
+    res_runs_proj = await client.get(f"/api/v1/runs?project_id={proj_id}")
+    assert res_runs_proj.status_code == 200
+    assert len(res_runs_proj.json()) >= 1
 
     # 3. List trials
     res_trials = await client.get(f"/api/v1/runs/{run_id}/trials")
@@ -168,18 +176,28 @@ async def test_runs_and_evidence_lifecycle(client: AsyncClient) -> None:
 
     # 5. Get report (json & markdown)
     res_rep_json = await client.get(f"/api/v1/runs/{run_id}/report?format=json")
-    assert res_rep_json.status_code == 200
 
+    # 6. Fetch evidence and reports
     res_rep_md = await client.get(f"/api/v1/runs/{run_id}/report?format=markdown")
     assert res_rep_md.status_code == 200
     assert "# Agent Reliability Lab" in res_rep_md.text
 
-    # 6. Get evidence
+    res_rep_json = await client.get(f"/api/v1/runs/{run_id}/report?format=json")
+    assert res_rep_json.status_code == 200
+    assert "run_id" in res_rep_json.json()
+
     res_ev = await client.get(f"/api/v1/runs/{run_id}/evidence")
     assert res_ev.status_code == 200
     assert res_ev.json()["integrity_verified"] is True
 
-    # 7. Cancel run
+    # 7. Get single trial detail
+    if trials:
+        t_id = trials[0]["id"]
+        res_td = await client.get(f"/api/v1/trials/{t_id}")
+        assert res_td.status_code == 200
+        assert res_td.json()["id"] == t_id
+
+    # 8. Cancel run
     res_cancel = await client.post(f"/api/v1/runs/{run_id}/cancel")
     assert res_cancel.status_code == 200
     assert res_cancel.json()["state"] == "CANCELLED"

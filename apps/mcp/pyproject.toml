@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "arl-mcp"
+version = "0.1.0"
+description = "Model Context Protocol (MCP) server for Agent Reliability Lab"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Karthik Rajesh Shet", email = "kartikrshet@gmail.com" }
+]
+dependencies = [
+    "arl-core",
+    "arl-scenario-engine",
+    "arl-fault-engine",
+    "arl-execution-engine",
+    "arl-grading-engine",
+    "arl-evidence",
+    "arl-env-customer-support",
+    "arl-adapter-reference",
+    "pydantic>=2.10.0",
+]
+
+[project.scripts]
+arl-mcp = "arl.mcp.server:main"

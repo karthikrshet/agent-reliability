@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "agent-reliability-lab": {
+      "command": "python",
+      "args": ["-m", "arl.mcp"],
+      "env": {
+        "PYTHONPATH": "packages/core/src;packages/protocol/src;packages/scenario-engine/src;packages/fault-engine/src;packages/execution-engine/src;packages/grading-engine/src;packages/evidence/src;environments/customer-support/src;adapters/reference/src;apps/mcp/src"
+      }
+    }
+  }
+}

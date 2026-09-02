@@ -4,6 +4,7 @@ Evidence ledger and evaluation audit report API router.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -89,7 +90,7 @@ async def get_run_report(
         return Response(content=md_content, media_type="text/markdown")
 
     json_payload = reporter.generate_json_report()
-    return Response(content=str(json_payload).replace("'", '"'), media_type="application/json")
+    return Response(content=json.dumps(json_payload), media_type="application/json")
 
 
 @router.get("/{run_id}/evidence")
