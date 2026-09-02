@@ -35,6 +35,5 @@ def test_no_fabricated_data_in_dashboard_source() -> None:
             )
 
     assert not violations, (
-        "Production dashboard contains fabricated data violations:\n"
-        + "\n".join(violations)
+        "Production dashboard contains fabricated data violations:\n" + "\n".join(violations)
     )

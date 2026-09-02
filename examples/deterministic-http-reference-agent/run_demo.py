@@ -60,15 +60,11 @@ def main() -> None:
 
         # 2. Run Doctor diagnostics
         print("\n[Step 1/2] Running 'agentlab doctor' preflight diagnostics...")
-        res_doc = runner.invoke(
-            cli_app, ["doctor", "--agent-url", "http://127.0.0.1:8088"]
-        )
+        res_doc = runner.invoke(cli_app, ["doctor", "--agent-url", "http://127.0.0.1:8088"])
         print(res_doc.stdout)
 
         # 3. Run Reliability Evaluation
-        print(
-            "\n[Step 2/2] Running 'agentlab run' with 3 trials against live HTTP agent..."
-        )
+        print("\n[Step 2/2] Running 'agentlab run' with 3 trials against live HTTP agent...")
         res_run = runner.invoke(
             cli_app,
             [

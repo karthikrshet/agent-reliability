@@ -151,7 +151,5 @@ async def handle_turn(req: AgentInputRequest) -> AgentOutputResponse:
 
 
 if __name__ == "__main__":
-    print(
-        "Starting ARL Deterministic Reference HTTP Agent on http://127.0.0.1:8088 ..."
-    )
+    print("Starting ARL Deterministic Reference HTTP Agent on http://127.0.0.1:8088 ...")
     uvicorn.run(app, host="127.0.0.1", port=8088, log_level="warning")

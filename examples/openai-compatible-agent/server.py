@@ -34,6 +34,18 @@ class ChatCompletionRequest(BaseModel):
     temperature: float = 0.0
 
 
+def _estimate_tokens(messages: list[ChatMessage], completion_text: str = "") -> dict[str, int]:
+    """Provide realistic character-based token estimation for test simulation."""
+    prompt_chars = sum(len(m.content or "") + len(str(m.tool_calls or "")) for m in messages)
+    prompt_tokens = max(1, prompt_chars // 4)
+    completion_tokens = max(1, len(completion_text) // 4) if completion_text else 10
+    return {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": prompt_tokens + completion_tokens,
+    }
+
+
 @app.get("/healthz")
 @app.get("/v1/models")
 async def get_models() -> dict[str, Any]:
@@ -46,9 +58,11 @@ async def create_chat_completion(
     _authorization: str | None = Header(default=None, alias="authorization"),
 ) -> dict[str, Any]:
     """Simulate OpenAI ChatCompletions with tool calling."""
-    # Check if returning from tool response
     last_msg = req.messages[-1] if req.messages else None
     if last_msg and last_msg.role == "tool":
+        reply = (
+            "I have successfully retrieved your order information. Your order status is confirmed!"
+        )
         return {
             "id": f"chatcmpl-{uuid.uuid4().hex[:8]}",
             "object": "chat.completion",
@@ -58,16 +72,12 @@ async def create_chat_completion(
                     "index": 0,
                     "message": {
                         "role": "assistant",
-                        "content": "I have successfully retrieved your order information. Your order status is confirmed!",
+                        "content": reply,
                     },
                     "finish_reason": "stop",
                 }
             ],
-            "usage": {
-                "prompt_tokens": 140,
-                "completion_tokens": 25,
-                "total_tokens": 165,
-            },
+            "usage": _estimate_tokens(req.messages, reply),
         }
 
     # First turn: check user message and return tool call if tools available
@@ -76,9 +86,8 @@ async def create_chat_completion(
         if m.role == "user" and m.content:
             user_text += m.content.lower() + " "
 
-    if req.tools and (
-        "order" in user_text or "lookup" in user_text or "status" in user_text
-    ):
+    if req.tools and ("order" in user_text or "lookup" in user_text or "status" in user_text):
+        tool_args = '{"order_id": "ord-001", "customer_id": "cust-001"}'
         return {
             "id": f"chatcmpl-{uuid.uuid4().hex[:8]}",
             "object": "chat.completion",
@@ -95,7 +104,7 @@ async def create_chat_completion(
                                 "type": "function",
                                 "function": {
                                     "name": "lookup_order",
-                                    "arguments": '{"order_id": "ord-001", "customer_id": "cust-001"}',
+                                    "arguments": tool_args,
                                 },
                             }
                         ],
@@ -103,13 +112,10 @@ async def create_chat_completion(
                     "finish_reason": "tool_calls",
                 }
             ],
-            "usage": {
-                "prompt_tokens": 110,
-                "completion_tokens": 30,
-                "total_tokens": 140,
-            },
+            "usage": _estimate_tokens(req.messages, tool_args),
         }
 
+    greeting = "Hello! How can I assist you with your customer account today?"
     return {
         "id": f"chatcmpl-{uuid.uuid4().hex[:8]}",
         "object": "chat.completion",
@@ -119,16 +125,12 @@ async def create_chat_completion(
                 "index": 0,
                 "message": {
                     "role": "assistant",
-                    "content": "Hello! How can I assist you with your customer account today?",
+                    "content": greeting,
                 },
                 "finish_reason": "stop",
             }
         ],
-        "usage": {
-            "prompt_tokens": 50,
-            "completion_tokens": 15,
-            "total_tokens": 65,
-        },
+        "usage": _estimate_tokens(req.messages, greeting),
     }
 
 

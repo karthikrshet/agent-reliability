@@ -7,6 +7,7 @@ lifecycle protocol, SSRF defenses, tool record structures, and error handling.
 
 from __future__ import annotations
 
+import httpx
 import pytest
 
 from arl.adapters.http.adapter import HttpAgentAdapter
@@ -51,7 +52,7 @@ async def test_mock_adapter_conformance() -> None:
         AgentOutputType.FINISHED,
     )
 
-    await adapter.end_session(session)
+    await adapter.close_session(session)
 
 
 @pytest.mark.asyncio
@@ -75,10 +76,14 @@ async def test_http_adapter_ssrf_conformance() -> None:
 @pytest.mark.asyncio
 async def test_openai_adapter_lifecycle_and_mock() -> None:
     """Verify OpenAIAgentAdapter session lifecycle and ChatCompletions tool call formatting."""
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda r: httpx.Response(200, json={}))
+    )
     adapter = OpenAIAgentAdapter(
         endpoint_url="https://api.openai.com/v1",
         model="gpt-4o-mini",
         api_key="sk-test-key",
+        custom_client=client,
     )
     assert adapter.adapter_id == "openai-v1"
     assert adapter.framework == "openai"
@@ -103,4 +108,4 @@ async def test_openai_adapter_lifecycle_and_mock() -> None:
     with pytest.raises(SecurityViolationError):
         OpenAIAgentAdapter(endpoint_url="http://169.254.169.254/v1")
 
-    await adapter.end_session(session)
+    await adapter.close_session(session)

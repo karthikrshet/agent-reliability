@@ -36,7 +36,7 @@ def test_ssrf_rejects_private_rfc1918_ips() -> None:
     ]
     for target in private_targets:
         with pytest.raises(SecurityViolationError):
-            validate_url_for_ssrf(target, allow_localhost=False)
+            validate_url_for_ssrf(target)
 
 
 @pytest.mark.unit

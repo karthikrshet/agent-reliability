@@ -42,7 +42,6 @@ class OpenAIAgentAdapter(AgentAdapter):
         api_key: str | None = None,
         timeout_seconds: float = 60.0,
         system_prompt: str | None = None,
-        allow_localhost: bool | None = None,
         extra_headers: dict[str, str] | None = None,
         custom_client: httpx.AsyncClient | None = None,
     ) -> None:
@@ -54,18 +53,13 @@ class OpenAIAgentAdapter(AgentAdapter):
             system_prompt
             or "You are a customer support agent. Help the user by executing available tools accurately."
         )
-        self.allow_localhost = (
-            allow_localhost
-            if allow_localhost is not None
-            else os.getenv("ARL_ALLOW_LOCALHOST_TARGETS", "").lower() in ("true", "1", "yes")
-        )
         self.extra_headers = extra_headers or {}
         self._custom_client = custom_client
         self._client: httpx.AsyncClient | None = custom_client
 
         # Pre-validate endpoint for SSRF
         if not custom_client:
-            validate_url_for_ssrf(self.endpoint_url, allow_localhost=self.allow_localhost)
+            validate_url_for_ssrf(self.endpoint_url)
 
     @property
     def adapter_id(self) -> str:
@@ -95,8 +89,8 @@ class OpenAIAgentAdapter(AgentAdapter):
 
     async def start_session(self, context: SessionContext) -> AgentSession:
         """Initialize an OpenAI chat session with system prompt and tool definitions."""
-        if not self._client:
-            validate_url_for_ssrf(self.endpoint_url, allow_localhost=self.allow_localhost)
+        if not self._custom_client:
+            validate_url_for_ssrf(self.endpoint_url)
 
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": self.system_prompt},
@@ -137,7 +131,7 @@ class OpenAIAgentAdapter(AgentAdapter):
     async def send(self, session: AgentSession, message: AgentInput) -> AgentOutput:
         """Process turn by appending user messages or tool results, then calling /chat/completions."""
         if not self._custom_client:
-            validate_url_for_ssrf(self.endpoint_url, allow_localhost=self.allow_localhost)
+            validate_url_for_ssrf(self.endpoint_url)
         client = await self._get_client()
 
         state = session.adapter_state

@@ -20,22 +20,51 @@ def test_ssrf_rejects_private_ips() -> None:
     ]
     for url in private_urls:
         with pytest.raises(SecurityViolationError) as exc_info:
-            validate_url_for_ssrf(url, allow_localhost=False)
-        assert "SSRF protection" in str(exc_info.value)
+            validate_url_for_ssrf(url)
+        assert "SSRF_PROTECTION" in str(exc_info.value)
 
 
 @pytest.mark.unit
 def test_ssrf_rejects_invalid_scheme() -> None:
     with pytest.raises(SecurityViolationError) as exc_info:
         validate_url_for_ssrf("file:///etc/passwd")
-    assert "Invalid URL scheme" in str(exc_info.value)
+    assert "INVALID_SCHEME" in str(exc_info.value)
 
     with pytest.raises(SecurityViolationError):
         validate_url_for_ssrf("gopher://127.0.0.1:70")
 
 
 @pytest.mark.unit
-def test_ssrf_allows_localhost_when_explicitly_enabled() -> None:
-    # When allow_localhost=True, 127.0.0.1 and localhost are permitted
-    validate_url_for_ssrf("http://localhost:8000/agent", allow_localhost=True)
-    validate_url_for_ssrf("http://127.0.0.1:8000/agent", allow_localhost=True)
+def test_ssrf_rejects_localhost_without_dual_environment_flags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 1. Neither flag set -> Rejection
+    monkeypatch.delenv("ARL_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("ARL_ALLOW_LOCALHOST_TARGETS", raising=False)
+    with pytest.raises(SecurityViolationError) as exc:
+        validate_url_for_ssrf("http://127.0.0.1:8088/agent")
+    assert "LOCALHOST_PROHIBITED" in str(exc.value)
+
+    # 2. Only ARL_ENVIRONMENT=development set -> Rejection
+    monkeypatch.setenv("ARL_ENVIRONMENT", "development")
+    monkeypatch.delenv("ARL_ALLOW_LOCALHOST_TARGETS", raising=False)
+    with pytest.raises(SecurityViolationError) as exc:
+        validate_url_for_ssrf("http://localhost:8088/agent")
+    assert "LOCALHOST_PROHIBITED" in str(exc.value)
+
+    # 3. Only ARL_ALLOW_LOCALHOST_TARGETS=true set -> Rejection
+    monkeypatch.setenv("ARL_ENVIRONMENT", "production")
+    monkeypatch.setenv("ARL_ALLOW_LOCALHOST_TARGETS", "true")
+    with pytest.raises(SecurityViolationError) as exc:
+        validate_url_for_ssrf("http://127.0.0.1:8088/agent")
+    assert "LOCALHOST_PROHIBITED" in str(exc.value)
+
+
+@pytest.mark.unit
+def test_ssrf_allows_localhost_only_when_both_flags_active(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ARL_ENVIRONMENT", "development")
+    monkeypatch.setenv("ARL_ALLOW_LOCALHOST_TARGETS", "true")
+
+    # Should not raise
+    validate_url_for_ssrf("http://localhost:8000/agent")
+    validate_url_for_ssrf("http://127.0.0.1:8000/agent")

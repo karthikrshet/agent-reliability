@@ -1,8 +1,11 @@
 """
-Live opt-in End-to-End Evaluation test for OpenAI-compatible model endpoints.
+Live opt-in and in-process contract tests for OpenAI-compatible model endpoints.
 
-Enable with:
-    ARL_LIVE_E2E=1 pytest tests/live/test_openai_compatible_e2e.py -v
+Run contract test:
+    pytest tests/live/test_openai_compatible_e2e.py -v -k "contract"
+
+Run against real live OpenAI / Ollama / vLLM endpoint:
+    ARL_LIVE_E2E=1 ARL_OPENAI_API_KEY=sk-... pytest tests/live/test_openai_compatible_e2e.py -v
 """
 
 from __future__ import annotations
@@ -43,7 +46,7 @@ mock_app = FastAPI()
 @mock_app.post("/v1/chat/completions")
 async def create_chat_completion(
     req: ChatCompletionRequest,
-    authorization: str | None = Header(default=None),
+    _authorization: str | None = Header(default=None, alias="authorization"),
 ) -> dict[str, Any]:
     last_msg = req.messages[-1] if req.messages else None
     if last_msg and last_msg.role == "tool":
@@ -101,7 +104,7 @@ async def create_chat_completion(
 
 
 @pytest.mark.asyncio
-async def test_openai_compatible_evaluation_with_mock_endpoint() -> None:
+async def test_openai_compatible_contract_with_mock_transport() -> None:
     """Always runnable contract test verifying OpenAIAgentAdapter against standard ChatCompletions."""
     transport = ASGITransport(app=mock_app)
     async with AsyncClient(transport=transport, base_url="http://testopenai") as client:
@@ -109,13 +112,10 @@ async def test_openai_compatible_evaluation_with_mock_endpoint() -> None:
             endpoint_url="http://testopenai/v1/chat/completions",
             api_key="test-key",
             model="gpt-4o-mini",
-            allow_localhost=True,
             custom_client=client,
         )
 
-        scenario_path = Path(
-            "scenarios/tool-correctness/01-order-lookup-correct-arguments.yaml"
-        )
+        scenario_path = Path("scenarios/tool-correctness/01-order-lookup-correct-arguments.yaml")
         scenario, _, _ = load_scenario(scenario_path)
         env = CustomerSupportEnvironment(seed=42)
 
@@ -142,7 +142,7 @@ async def test_openai_compatible_evaluation_with_mock_endpoint() -> None:
 
 
 @pytest.mark.asyncio
-async def test_live_openai_endpoint_opt_in() -> None:
+async def test_live_openai_endpoint_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
     """Opt-in test running against a real external OpenAI / Ollama / vLLM endpoint."""
     if not os.getenv("ARL_LIVE_E2E"):
         pytest.skip(
@@ -156,16 +156,17 @@ async def test_live_openai_endpoint_opt_in() -> None:
     if not api_key:
         pytest.skip("ARL_OPENAI_API_KEY required for live test")
 
+    if "localhost" in base_url or "127.0.0.1" in base_url:
+        monkeypatch.setenv("ARL_ENVIRONMENT", "development")
+        monkeypatch.setenv("ARL_ALLOW_LOCALHOST_TARGETS", "true")
+
     adapter = OpenAIAgentAdapter(
         endpoint_url=f"{base_url.rstrip('/')}/chat/completions",
         api_key=api_key,
         model=model,
-        allow_localhost=True,
     )
 
-    scenario_path = Path(
-        "scenarios/tool-correctness/01-order-lookup-correct-arguments.yaml"
-    )
+    scenario_path = Path("scenarios/tool-correctness/01-order-lookup-correct-arguments.yaml")
     scenario, _, _ = load_scenario(scenario_path)
     env = CustomerSupportEnvironment(seed=42)
 
@@ -185,5 +186,4 @@ async def test_live_openai_endpoint_opt_in() -> None:
     )
 
     result = await executor.run()
-
     assert result.completed_normally is True

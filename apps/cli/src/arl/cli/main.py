@@ -189,6 +189,7 @@ async def _run_evaluation_async(
                 trial_index=t_idx,
                 idempotency_key=f"idemp-{trial_id}",
                 fault_seed=fault_seed,
+                is_reference_only=reference_only,
             )
 
             # Initialize isolated sandboxed environment
@@ -270,6 +271,7 @@ async def _run_evaluation_async(
         trial_verdicts=trial_verdicts,
         grader_results=all_grader_results,
         trial_categories=trial_categories,
+        is_reference_only=reference_only,
     )
 
     _ = ReportGenerator(run_result=res, evidence_collector=collector)
@@ -321,15 +323,23 @@ def run_command(
     ] = None,
     openai_model: Annotated[
         str | None,
-        typer.Option("--openai-model", help="OpenAI-compatible model name (e.g. gpt-4o-mini, llama3.1)"),
+        typer.Option(
+            "--openai-model", help="OpenAI-compatible model name (e.g. gpt-4o-mini, llama3.1)"
+        ),
     ] = None,
     openai_base_url: Annotated[
         str | None,
-        typer.Option("--openai-base-url", help="OpenAI-compatible base URL (default https://api.openai.com/v1)"),
+        typer.Option(
+            "--openai-base-url",
+            help="OpenAI-compatible base URL (default https://api.openai.com/v1)",
+        ),
     ] = None,
     reference_agent: Annotated[
         bool,
-        typer.Option("--reference-agent", help="Use local deterministic reference agent (NON_PRODUCTION_REFERENCE)"),
+        typer.Option(
+            "--reference-agent",
+            help="Use local deterministic reference agent (NON_PRODUCTION_REFERENCE)",
+        ),
     ] = False,
     trials: Annotated[
         int, typer.Option("--trials", "-n", help="Number of trials per scenario")

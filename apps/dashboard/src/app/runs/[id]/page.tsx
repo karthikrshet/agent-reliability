@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Layers,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import {
   fetchRun,
@@ -66,6 +67,33 @@ export default function RunDetailPage() {
       <div className="p-12 text-center text-slate-400">
         <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-indigo-400" />
         Loading evaluation run details for <span className="font-mono text-white">{runId}</span>...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 max-w-4xl mx-auto text-center space-y-4">
+        <div className="bg-amber-950/40 border border-amber-800/60 rounded-2xl p-6 text-center space-y-3">
+          <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto" />
+          <h1 className="text-xl font-bold text-amber-300">Backend Connection Error</h1>
+          <p className="text-sm text-amber-200/80">{error}</p>
+          <div className="flex justify-center gap-3 pt-2">
+            <button
+              onClick={loadRunData}
+              className="px-4 py-2 rounded-xl bg-amber-900/60 hover:bg-amber-800 text-amber-100 text-sm font-medium transition"
+            >
+              Retry
+            </button>
+            <Link
+              href="/runs"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-slate-300 hover:text-white"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Evaluation Runs
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }

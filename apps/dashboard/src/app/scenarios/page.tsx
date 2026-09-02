@@ -89,6 +89,23 @@ export default function ScenariosPage() {
         </button>
       </div>
 
+      {/* Backend Connection Error Banner */}
+      {error && (
+        <div className="bg-amber-950/40 border border-amber-800/60 rounded-xl p-5 flex items-start gap-4 text-amber-200">
+          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 text-sm">
+            <p className="font-semibold text-amber-300">Backend Connection Error</p>
+            <p className="text-amber-300/80 mt-1">{error}</p>
+          </div>
+          <button
+            onClick={loadScenarios}
+            className="px-3 py-1.5 bg-amber-900/60 hover:bg-amber-800 text-amber-100 text-xs font-medium rounded-lg transition"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Filters & Search */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-xl bg-slate-900/60 border border-slate-800">
         {/* Category Tabs */}

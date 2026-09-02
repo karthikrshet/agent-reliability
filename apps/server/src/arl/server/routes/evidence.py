@@ -24,10 +24,16 @@ router = APIRouter(prefix="/api/v1/runs", tags=["Evidence & Reports"])
 @router.get("/{run_id}/report")
 async def get_run_report(
     run_id: str,
-    format: str = Query(default="json", enum=["json", "markdown", "md"]),
+    format: str = Query(default="json"),
     session: AsyncSession = Depends(get_db_session),
 ) -> Response:
     """Generate and return evaluation report with statistical bounds and evidence hashes."""
+    if format not in ("json", "markdown", "md"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid report format '{format}'. Supported formats are 'json', 'markdown', 'md'.",
+        )
+
     # 1. Fetch run and trials
     run_stmt = select(EvaluationRunModel).where(EvaluationRunModel.id == run_id)
     r = (await session.execute(run_stmt)).scalar_one_or_none()
