@@ -24,6 +24,7 @@ from arl.adapters.http.adapter import HttpAgentAdapter
 from arl.adapters.reference.agent import MockAgentAdapter
 from arl.core.domain.trial import Trial
 from arl.core.storage.models import (
+    AgentDefinitionModel,
     AgentVersionModel,
     FaultEventModel,
     ScenarioVersionModel,
@@ -98,16 +99,36 @@ class ExecutionWorker:
             await self.lease_manager.release_lease(session, trial_id, new_state="FAILED")
             return
 
+        agent_def = await session.get(AgentDefinitionModel, agent_ver.agent_definition_id)
+
         # 2. Parse scenario and instantiate environment
         parsed_scenario = load_scenario_from_string(scenario_ver.source_yaml)
         environment = CustomerSupportEnvironment(seed=parsed_scenario.environment.seed)
 
-        # 3. Instantiate adapter
+        # 3. Instantiate adapter explicitly based on framework and configuration
         adapter: AgentAdapter
-        if agent_ver.endpoint_url:
-            adapter = HttpAgentAdapter(endpoint_url=agent_ver.endpoint_url, allow_localhost=True)
-        else:
+        fw = (agent_def.framework if agent_def else "").lower()
+        if fw in ("http", "rest") or (not fw and agent_ver.endpoint_url):
+            if not agent_ver.endpoint_url:
+                logger.error("HTTP adapter requires endpoint_url for agent %s", agent_ver.id)
+                await self.lease_manager.release_lease(session, trial_id, new_state="FAILED")
+                return
+            adapter = HttpAgentAdapter(endpoint_url=agent_ver.endpoint_url)
+        elif fw == "openai":
+            from arl.adapters.openai.adapter import OpenAIAgentAdapter
+
+            cfg = agent_ver.model_config_data or {}
+            adapter = OpenAIAgentAdapter(
+                endpoint_url=agent_ver.endpoint_url or "https://api.openai.com/v1",
+                model=cfg.get("model", "gpt-4o-mini"),
+                api_key=cfg.get("api_key"),
+            )
+        elif fw in ("reference", "mock"):
             adapter = MockAgentAdapter()
+        else:
+            logger.error("Unsupported adapter framework '%s' for agent %s", fw, agent_ver.id)
+            await self.lease_manager.release_lease(session, trial_id, new_state="FAILED")
+            return
 
         # 4. Domain Trial model
         domain_trial = Trial(

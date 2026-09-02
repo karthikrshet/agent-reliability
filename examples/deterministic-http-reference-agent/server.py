@@ -1,12 +1,12 @@
 """
-Agent Reliability Lab — Real HTTP Reference Agent Server.
+Agent Reliability Lab — Deterministic HTTP Reference Agent Server.
 
-A standalone HTTP agent endpoint demonstrating the Agent Reliability Lab
-protocol contract. Responds to multi-turn conversation inputs and executes
-stateful tool calls against the ARL execution proxy.
+A standalone HTTP reference endpoint demonstrating the Agent Reliability Lab
+protocol contract using deterministic keyword dispatching (not an LLM). Responds
+to multi-turn conversation inputs and executes stateful tool calls.
 
 Run with:
-    python examples/real-http-agent/server.py
+    python examples/deterministic-http-reference-agent/server.py
 """
 
 from __future__ import annotations
@@ -19,8 +19,8 @@ from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
 app = FastAPI(
-    title="ARL Reference Customer Support Agent",
-    description="Real HTTP Agent Endpoint implementing the ARL AgentAdapter contract",
+    title="ARL Deterministic HTTP Reference Agent",
+    description="Deterministic HTTP Reference Endpoint implementing the ARL AgentAdapter contract",
     version="1.0.0",
 )
 
@@ -50,9 +50,7 @@ class AgentOutputResponse(BaseModel):
     output_type: str = "tool_calls"  # "tool_calls", "message", or "interrupted"
     message_content: str | None = None
     tool_calls: list[ToolCallItem] = Field(default_factory=list)
-    token_usage: dict[str, int] = Field(
-        default_factory=lambda: {"prompt_tokens": 120, "completion_tokens": 45, "total_tokens": 165}
-    )
+    token_usage: dict[str, int] | None = None
 
 
 # Active in-memory session store
@@ -62,7 +60,7 @@ sessions: dict[str, dict[str, Any]] = {}
 @app.get("/healthz")
 async def health_check() -> dict[str, str]:
     """Liveness probe."""
-    return {"status": "ok", "agent": "arl-reference-http-agent"}
+    return {"status": "ok", "agent": "arl-deterministic-http-reference-agent"}
 
 
 @app.post("/sessions")
@@ -94,6 +92,7 @@ async def handle_turn(req: AgentInputRequest) -> AgentOutputResponse:
                 output_type="message",
                 message_content="I apologize for the temporary disruption. I have noted your request and recorded the details.",
                 tool_calls=[],
+                token_usage=None,
             )
 
         # Successful tool result -> generate final resolution message
@@ -101,6 +100,7 @@ async def handle_turn(req: AgentInputRequest) -> AgentOutputResponse:
             output_type="message",
             message_content="Your request has been successfully processed in our system. Let me know if you need anything else!",
             tool_calls=[],
+            token_usage=None,
         )
 
     # 2. Extract latest user query text
@@ -121,6 +121,7 @@ async def handle_turn(req: AgentInputRequest) -> AgentOutputResponse:
                     arguments={"order_id": "ord-001", "customer_id": "cust-001"},
                 )
             ],
+            token_usage=None,
         )
 
     if "refund" in user_text or "cancel" in user_text:
@@ -137,16 +138,20 @@ async def handle_turn(req: AgentInputRequest) -> AgentOutputResponse:
                     },
                 )
             ],
+            token_usage=None,
         )
 
     # Default fallback message
     return AgentOutputResponse(
         output_type="message",
-        message_content="Hello! I am your AI customer support assistant. How can I assist you with your orders today?",
+        message_content="Hello! I am your customer support reference assistant. How can I assist you with your orders today?",
         tool_calls=[],
+        token_usage=None,
     )
 
 
 if __name__ == "__main__":
-    print("Starting ARL Reference Customer Support HTTP Agent on http://127.0.0.1:8088 ...")
+    print(
+        "Starting ARL Deterministic Reference HTTP Agent on http://127.0.0.1:8088 ..."
+    )
     uvicorn.run(app, host="127.0.0.1", port=8088, log_level="warning")

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.1-beta.1] - 2026-09-02
+
+### Fixed & Hardened (Integrity Release)
+- **Eliminated Fabricated Dashboard Data**: Removed all hardcoded scores (`92.0%`), synthetic trajectories (`SAMPLE_TRAJECTORY`), and sample markdown reports from `apps/dashboard`. Added typed API client connected to real FastAPI endpoints with honest empty/loading states. Added `tests/test_no_fabricated_data.py` regression suite.
+- **Eliminated Silent Mock Fallback**: Required explicit target (`--agent-url`, `--openai-model`, or `--reference-agent`) in CLI `agentlab run`, worker, and MCP server. Local reference executions are explicitly marked `reference_only=true` and tagged `NON_PRODUCTION_REFERENCE`.
+- **SSRF Defense Invariants**: Added strict validation against URL embedded credentials (`user:pass@host`), link-local metadata IPs, and private subnets. Required dual development flags (`ARL_ENVIRONMENT=development` and `ARL_ALLOW_LOCALHOST_TARGETS=true`) for localhost evaluation.
+- **Distributed Worker Leases**: Added multi-worker lease acquisition, expired lease fencing, and crash reclamation tests (`tests/test_leases_concurrency.py`).
+- **OpenAI-Compatible Real Agent Integration**: Added `examples/openai-compatible-agent/` with standalone test server, contract tests, and opt-in live API evaluation suite (`tests/live/test_openai_compatible_e2e.py`).
+- **Neutral Product Positioning**: Replaced all external product comparisons and marketing superlatives with neutral positioning across all documentation.
+
+---
+
 ## [0.2.0-beta] - 2026-09-02
 
 ### Added

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Play,
@@ -11,83 +11,31 @@ import {
   RefreshCw,
   Plus,
   ShieldCheck,
+  AlertCircle,
 } from "lucide-react";
-
-interface EvaluationRunItem {
-  id: string;
-  agentName: string;
-  agentVersion: string;
-  state: "COMPLETED" | "RUNNING" | "QUEUED" | "FAILED";
-  trialTotal: number;
-  trialPassed: number;
-  passRate: number;
-  wilsonLower: number;
-  wilsonUpper: number;
-  createdAt: string;
-}
-
-const SAMPLE_RUNS: EvaluationRunItem[] = [
-  {
-    id: "run-e2e-canary-01",
-    agentName: "Retail Support Bot",
-    agentVersion: "v1.2.0-rc1",
-    state: "COMPLETED",
-    trialTotal: 75,
-    trialPassed: 69,
-    passRate: 0.92,
-    wilsonLower: 0.836,
-    wilsonUpper: 0.963,
-    createdAt: "Just now",
-  },
-  {
-    id: "run-eval-baseline-25",
-    agentName: "Retail Support Bot",
-    agentVersion: "v1.1.4",
-    state: "COMPLETED",
-    trialTotal: 75,
-    trialPassed: 64,
-    passRate: 0.853,
-    wilsonLower: 0.756,
-    wilsonUpper: 0.919,
-    createdAt: "2 hours ago",
-  },
-  {
-    id: "run-fault-stress-test",
-    agentName: "Retail Support Bot",
-    agentVersion: "v1.0.0",
-    state: "COMPLETED",
-    trialTotal: 50,
-    trialPassed: 38,
-    passRate: 0.76,
-    wilsonLower: 0.626,
-    wilsonUpper: 0.857,
-    createdAt: "Yesterday",
-  },
-];
+import { fetchRuns, EvaluationRun } from "@/lib/api";
 
 export default function RunsPage() {
-  const [runs, setRuns] = useState<EvaluationRunItem[]>(SAMPLE_RUNS);
-  const [isTriggering, setIsTriggering] = useState(false);
+  const [runs, setRuns] = useState<EvaluationRun[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLaunchRun = () => {
-    setIsTriggering(true);
-    setTimeout(() => {
-      const newRun: EvaluationRunItem = {
-        id: `run-${Date.now().toString().slice(-6)}`,
-        agentName: "Retail Support Bot",
-        agentVersion: "v1.2.0-canary",
-        state: "COMPLETED",
-        trialTotal: 25,
-        trialPassed: 24,
-        passRate: 0.96,
-        wilsonLower: 0.805,
-        wilsonUpper: 0.993,
-        createdAt: "Just now",
-      };
-      setRuns([newRun, ...runs]);
-      setIsTriggering(false);
-    }, 1200);
+  const loadRuns = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchRuns();
+      setRuns(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load evaluation runs");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    loadRuns();
+  }, []);
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
@@ -99,95 +47,138 @@ export default function RunsPage() {
           </p>
         </div>
 
-        <button
-          onClick={handleLaunchRun}
-          disabled={isTriggering}
-          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 text-white text-sm font-semibold hover:opacity-95 shadow-lg shadow-indigo-500/25 transition flex items-center gap-2 disabled:opacity-50"
-        >
-          {isTriggering ? (
-            <RefreshCw className="w-4 h-4 animate-spin text-white" />
-          ) : (
-            <Plus className="w-4 h-4" />
-          )}
-          {isTriggering ? "Spawning Trials..." : "Trigger New Run (25 Scenarios)"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={loadRuns}
+            disabled={loading}
+            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition"
+            title="Refresh Runs"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
-      {/* Runs Table */}
-      <div className="rounded-2xl glass-panel overflow-hidden">
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            All Evaluation Runs ({runs.length})
-          </span>
-          <span className="text-xs text-indigo-400 font-medium">Auto-refreshed via Worker Leases</span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-900/50 text-slate-400 uppercase font-semibold border-b border-slate-800">
-              <tr>
-                <th className="py-3.5 px-4">Run Identifier</th>
-                <th className="py-3.5 px-4">Agent Target</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4">Pass Rate</th>
-                <th className="py-3.5 px-4">Wilson 95% CI</th>
-                <th className="py-3.5 px-4">Trials</th>
-                <th className="py-3.5 px-4">Timestamp</th>
-                <th className="py-3.5 px-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {runs.map((r) => {
-                const isPassed = r.wilsonLower >= 0.8;
-                return (
-                  <tr key={r.id} className="hover:bg-slate-900/40 transition">
-                    <td className="py-4 px-4 font-mono font-bold text-white flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-indigo-400" />
-                      {r.id}
+      {/* Runs Table / List */}
+      <div className="rounded-2xl bg-slate-900/40 border border-slate-800 overflow-hidden">
+        {loading ? (
+          <div className="p-12 text-center text-slate-400">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-400" />
+            Loading evaluation runs from backend...
+          </div>
+        ) : error ? (
+          <div className="p-8 text-center text-rose-400 space-y-2">
+            <AlertCircle className="w-8 h-8 mx-auto" />
+            <p className="font-semibold">{error}</p>
+            <button
+              onClick={loadRuns}
+              className="px-4 py-1.5 rounded-lg bg-slate-800 text-white text-xs hover:bg-slate-700"
+            >
+              Retry
+            </button>
+          </div>
+        ) : runs.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 space-y-3">
+            <Clock className="w-10 h-10 mx-auto text-slate-600" />
+            <h3 className="text-base font-semibold text-white">No Evaluation Runs Found</h3>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              Execute evaluation runs using the CLI tool:
+            </p>
+            <div className="inline-block p-2.5 px-4 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs text-indigo-300">
+              agentlab run -s scenarios/ --agent-url http://127.0.0.1:8088 -n 3
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-950/60 border-b border-slate-800 text-slate-400 uppercase font-semibold">
+                <tr>
+                  <th className="p-4 pl-6">Run ID</th>
+                  <th className="p-4">State</th>
+                  <th className="p-4">Trials</th>
+                  <th className="p-4">Pass Rate</th>
+                  <th className="p-4">95% Wilson CI</th>
+                  <th className="p-4">Verdict</th>
+                  <th className="p-4">Created At</th>
+                  <th className="p-4 pr-6 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {runs.map((run) => (
+                  <tr
+                    key={run.id}
+                    className="hover:bg-slate-800/30 transition group"
+                  >
+                    <td className="p-4 pl-6 font-mono font-bold text-white">
+                      <Link
+                        href={`/runs/${run.id}`}
+                        className="hover:text-indigo-400 transition"
+                      >
+                        {run.id}
+                      </Link>
                     </td>
-                    <td className="py-4 px-4">
-                      <div className="font-semibold text-slate-200">{r.agentName}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">{r.agentVersion}</div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                        {r.state}
+                    <td className="p-4">
+                      <span
+                        className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
+                          run.state === "COMPLETED"
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                            : run.state === "RUNNING"
+                            ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 animate-pulse"
+                            : run.state === "FAILED"
+                            ? "bg-rose-500/10 text-rose-400 border border-rose-500/30"
+                            : "bg-slate-800 text-slate-400"
+                        }`}
+                      >
+                        {run.state}
                       </span>
                     </td>
-                    <td className="py-4 px-4 font-mono font-bold text-slate-200">
-                      {(r.passRate * 100).toFixed(1)}%
+                    <td className="p-4 font-mono text-slate-300">
+                      {run.completed_trials}/{run.total_trials || run.completed_trials}
                     </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-slate-300">
-                          [{(r.wilsonLower * 100).toFixed(1)}% — {(r.wilsonUpper * 100).toFixed(1)}%]
-                        </span>
-                        {isPassed && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                            READY
-                          </span>
-                        )}
-                      </div>
+                    <td className="p-4 font-mono font-semibold text-white">
+                      {run.pass_rate !== undefined
+                        ? `${(run.pass_rate * 100).toFixed(1)}%`
+                        : "-"}
                     </td>
-                    <td className="py-4 px-4 text-slate-300 font-mono">
-                      {r.trialPassed} / {r.trialTotal}
+                    <td className="p-4 font-mono text-slate-400">
+                      {run.pass_rate_ci_lower !== undefined &&
+                      run.pass_rate_ci_upper !== undefined
+                        ? `[${(run.pass_rate_ci_lower * 100).toFixed(1)}%, ${(
+                            run.pass_rate_ci_upper * 100
+                          ).toFixed(1)}%]`
+                        : "N/A"}
                     </td>
-                    <td className="py-4 px-4 text-slate-400">{r.createdAt}</td>
-                    <td className="py-4 px-4 text-right">
-                      <Link
-                        href={`/runs/${r.id}`}
-                        className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-semibold"
+                    <td className="p-4">
+                      <span
+                        className={`text-xs font-semibold ${
+                          run.readiness_verdict === "READY"
+                            ? "text-emerald-400"
+                            : run.readiness_verdict === "NOT_READY"
+                            ? "text-rose-400"
+                            : "text-amber-400"
+                        }`}
                       >
-                        Inspect Trajectory
+                        {run.readiness_verdict || "PENDING"}
+                      </span>
+                    </td>
+                    <td className="p-4 text-slate-400">
+                      {new Date(run.created_at).toLocaleString()}
+                    </td>
+                    <td className="p-4 pr-6 text-right">
+                      <Link
+                        href={`/runs/${run.id}`}
+                        className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-medium"
+                      >
+                        Inspect
                         <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

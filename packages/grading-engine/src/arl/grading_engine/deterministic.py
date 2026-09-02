@@ -19,7 +19,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-import jmespath  # type: ignore[import-untyped]
+import jmespath
 
 from arl.core.domain.grading import FindingSeverity, GraderCategory, GraderResult, GraderType
 from arl.core.domain.trial import Trial, TrialVerdict

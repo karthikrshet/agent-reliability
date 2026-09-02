@@ -15,6 +15,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from arl.adapters.http.adapter import HttpAgentAdapter
 from arl.adapters.reference.agent import MockAgentAdapter
 from arl.core.domain.trial import Trial
 from arl.environments.customer_support.environment import CustomerSupportEnvironment
@@ -22,6 +23,7 @@ from arl.evidence.collector import EvidenceCollector
 from arl.execution_engine.executor import TrialExecutor
 from arl.grading_engine.deterministic import DeterministicTrialEvaluator
 from arl.grading_engine.stats import compute_wilson_score_interval
+from arl.protocol.adapter import AgentAdapter
 from arl.scenario_engine.loader import load_scenario, load_scenario_from_string
 from arl.scenario_engine.schema import ParsedScenario
 
@@ -103,13 +105,30 @@ class MCPServer:
             },
             {
                 "name": "run_evaluation_trial",
-                "description": "Execute a sandboxed evaluation trial against an agent under deterministic fault injection.",
+                "description": "Execute a sandboxed evaluation trial against an agent under deterministic fault injection. Requires explicit target.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "scenario_id": {
                             "type": "string",
                             "description": "Scenario ID to execute",
+                        },
+                        "agent_url": {
+                            "type": "string",
+                            "description": "HTTP Agent endpoint URL",
+                        },
+                        "openai_model": {
+                            "type": "string",
+                            "description": "OpenAI-compatible model name",
+                        },
+                        "openai_base_url": {
+                            "type": "string",
+                            "description": "OpenAI-compatible base URL",
+                        },
+                        "reference_only": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "Explicitly select local deterministic reference agent (NON_PRODUCTION_REFERENCE)",
                         },
                         "seed": {
                             "type": "integer",
@@ -260,6 +279,10 @@ class MCPServer:
         elif name == "run_evaluation_trial":
             scenario_id = arguments["scenario_id"]
             seed = int(arguments.get("seed", 42))
+            agent_url = arguments.get("agent_url")
+            openai_model = arguments.get("openai_model")
+            openai_base_url = arguments.get("openai_base_url", "https://api.openai.com/v1")
+            reference_only = bool(arguments.get("reference_only", False))
 
             if scenario_id not in self._scenarios_cache:
                 return {
@@ -267,8 +290,36 @@ class MCPServer:
                     "content": [{"type": "text", "text": f"Scenario '{scenario_id}' not found."}],
                 }
 
+            if not agent_url and not openai_model and not reference_only:
+                return {
+                    "isError": True,
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "CONFIGURATION ERROR: No target agent specified. "
+                                "You must explicitly provide 'agent_url', 'openai_model', "
+                                "or 'reference_only: true'."
+                            ),
+                        }
+                    ],
+                }
+
             scenario, _ = self._scenarios_cache[scenario_id]
-            agent = MockAgentAdapter()
+
+            adapter: AgentAdapter
+            if agent_url:
+                adapter = HttpAgentAdapter(endpoint_url=agent_url)
+            elif openai_model:
+                from arl.adapters.openai.adapter import OpenAIAgentAdapter
+
+                adapter = OpenAIAgentAdapter(
+                    endpoint_url=f"{openai_base_url.rstrip('/')}/chat/completions",
+                    model=openai_model,
+                )
+            else:
+                adapter = MockAgentAdapter()
+
             env = CustomerSupportEnvironment(seed=seed)
             trial_id = f"mcp-trial-{uuid.uuid4().hex[:8]}"
             trial = Trial(
@@ -282,7 +333,7 @@ class MCPServer:
             executor = TrialExecutor(
                 trial=trial,
                 scenario=scenario,
-                adapter=agent,
+                adapter=adapter,
                 environment=env,
             )
 
@@ -303,8 +354,10 @@ class MCPServer:
                             {
                                 "scenario_id": scenario_id,
                                 "trial_id": trial_id,
+                                "reference_only": reference_only,
+                                "adapter_type": adapter.framework,
                                 "passed": verdict.value == "pass",
-                                "verdict": verdict.value,
+                                "verdict": "NON_PRODUCTION_REFERENCE" if reference_only else verdict.value,
                                 "score": score,
                                 "turns_consumed": len(exec_res.turns),
                                 "tool_calls_executed": len(exec_res.tool_calls),

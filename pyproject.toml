@@ -157,7 +157,7 @@ strict_optional = true
 plugins = ["sqlalchemy.ext.mypy.plugin", "pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["alembic.*", "testcontainers.*", "redis.*"]
+module = ["alembic.*", "testcontainers.*", "redis.*", "jsonschema.*", "yaml.*", "jmespath.*"]
 ignore_missing_imports = true
 
 # ---------------------------------------------------------------------------
