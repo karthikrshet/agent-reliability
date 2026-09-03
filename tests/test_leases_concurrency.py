@@ -247,15 +247,63 @@ async def test_live_postgres_concurrent_skip_locked() -> None:
 
     pg_session_factory = async_sessionmaker(pg_engine, expire_on_commit=False)
 
-    # Seed trials
+    # Seed parent entities and trials
     async with pg_session_factory() as session:
+        proj = ProjectModel(id="proj-pg-test", name="PG Test Project", slug="pg-test-project")
+        session.add(proj)
+
+        agent = AgentDefinitionModel(
+            id="agent-def-pg",
+            project_id=proj.id,
+            name="PG Test Agent",
+            framework="http",
+        )
+        session.add(agent)
+        agent_ver = AgentVersionModel(
+            id="ag-v1",
+            agent_definition_id=agent.id,
+            version_tag="1.0.0",
+            endpoint_url="http://127.0.0.1:8088",
+        )
+        session.add(agent_ver)
+
+        sc = ScenarioModel(
+            id="sc-pg-test",
+            project_id=proj.id,
+            name="PG Scenario",
+            category="tool-correctness",
+        )
+        session.add(sc)
+        sc_ver = ScenarioVersionModel(
+            id="sc-v1",
+            scenario_id=sc.id,
+            version_tag="1.0.0",
+            schema_version="2020-12",
+            environment_name="customer-support",
+            environment_version="1.0.0",
+            seed=42,
+            source_yaml="id: sc-pg-test\ntitle: Test\ncategory: tool-correctness\nseverity: medium\nbudgets:\n  max_turns: 5\n  max_tool_calls: 3\nconversation: []\ninitial_state: {}\nenvironment:\n  name: customer-support\n  version: 1.0.0\n  seed: 42\nfault_plan: []\nexpected_effects: []\nforbidden_effects: []",
+            source_hash="sc-hash-pg-123",
+        )
+        session.add(sc_ver)
+
+        run = EvaluationRunModel(
+            id="run-pg-test",
+            project_id=proj.id,
+            state="RUNNING",
+            run_seed=42,
+            created_by="test-suite",
+            trial_count_total=4,
+        )
+        session.add(run)
+
         for i in range(4):
             session.add(
                 TrialModel(
                     id=f"tr-pg-lease-{i}",
-                    run_id="run-pg-test",
-                    scenario_version_id="sc-v1",
-                    agent_version_id="ag-v1",
+                    run_id=run.id,
+                    scenario_version_id=sc_ver.id,
+                    agent_version_id=agent_ver.id,
                     trial_index=i,
                     trial_seed=200 + i,
                     state="PENDING",
