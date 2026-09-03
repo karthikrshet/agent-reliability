@@ -101,9 +101,14 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <FileCheck className="w-6 h-6 text-indigo-400" />
-            Audit Reports & Cryptographic Evidence
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800/60">
+              TAMPER-EVIDENT EVIDENCE
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
+            <FileCheck className="w-6 h-6 text-cyan-400" />
+            Audit Reports &amp; Cryptographic Evidence
           </h1>
           <p className="text-sm text-slate-400 mt-1">
             Tamper-evident evaluation records, SHA-256 hash chains, and compliance exports.
@@ -114,14 +119,14 @@ export default function ReportsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={handleCopy}
-              className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm font-medium text-slate-300 hover:text-white transition flex items-center gap-2"
+              className="lc-button-secondary text-xs px-4 py-2"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               {copied ? "Copied Markdown!" : "Copy Report"}
             </button>
             <button
               onClick={handleDownload}
-              className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 shadow-lg shadow-indigo-500/25 transition flex items-center gap-2"
+              className="lc-button-primary text-xs px-4 py-2"
             >
               <Download className="w-4 h-4" />
               Download Audit (.md)
@@ -150,8 +155,8 @@ export default function ReportsPage() {
       {/* Run Selection & Evidence Chain Bar */}
       {runs.length > 0 ? (
         <div className="space-y-6">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-            <span className="text-xs font-semibold text-slate-400 px-2 shrink-0">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 p-3.5 rounded-xl bg-[#080f1e] border border-cyan-500/20 shadow-sm">
+            <span className="text-xs font-semibold text-slate-400 px-2 shrink-0 font-mono">
               Select Evaluation Run:
             </span>
             {runs.map((r) => (
@@ -160,8 +165,8 @@ export default function ReportsPage() {
                 onClick={() => handleSelectRun(r.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-mono transition shrink-0 ${
                   selectedRunId === r.id
-                    ? "bg-indigo-600 text-white font-bold"
-                    : "bg-slate-950 text-slate-400 hover:text-white border border-slate-800"
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 font-bold shadow-sm"
+                    : "bg-[#040812] text-slate-400 hover:text-white border border-slate-800"
                 }`}
               >
                 {r.id} ({r.state})
@@ -171,7 +176,7 @@ export default function ReportsPage() {
 
           {/* Cryptographic Ledger Summary Card */}
           {evidence && (
-            <div className="p-5 rounded-xl bg-slate-900/40 border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="p-5 rounded-xl bg-[#080f1e] border border-cyan-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
               <div className="flex items-center gap-3">
                 <div
                   className={`w-10 h-10 rounded-xl flex items-center justify-center ${
@@ -193,22 +198,22 @@ export default function ReportsPage() {
                       : "Evidence Chain Tampering Detected"}
                   </h3>
                   <p className="text-xs text-slate-400 font-mono">
-                    Root Hash: {evidence.root_hash} ({evidence.total_blocks} blocks)
+                    Root Hash: <span className="text-cyan-300">{evidence.root_hash}</span> ({evidence.total_blocks} blocks)
                   </p>
                 </div>
               </div>
 
               <div className="text-xs text-slate-400 font-mono">
-                Run ID: <span className="text-indigo-400">{selectedRunId}</span>
+                Run ID: <span className="text-cyan-400">{selectedRunId}</span>
               </div>
             </div>
           )}
 
           {/* Report Viewer */}
-          <div className="p-6 rounded-xl bg-slate-950 border border-slate-800">
+          <div className="p-6 rounded-xl bg-[#040812] border border-slate-800/80 shadow-inner">
             {reportLoading ? (
               <div className="p-12 text-center text-slate-400">
-                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-400" />
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-cyan-400" />
                 Fetching real audit report from backend...
               </div>
             ) : reportMarkdown ? (
@@ -216,14 +221,14 @@ export default function ReportsPage() {
                 {reportMarkdown}
               </pre>
             ) : (
-              <div className="p-12 text-center text-slate-500 text-xs">
+              <div className="p-12 text-center text-slate-500 text-xs font-mono">
                 No report generated for this run yet.
               </div>
             )}
           </div>
         </div>
       ) : (
-        <div className="p-12 rounded-2xl bg-slate-900/40 border border-slate-800 text-center space-y-3">
+        <div className="p-12 rounded-2xl bg-[#080f1e] border border-cyan-500/20 text-center space-y-3">
           <FileText className="w-12 h-12 text-slate-600 mx-auto" />
           <h2 className="text-base font-bold text-white">No Reports Available</h2>
           <p className="text-xs text-slate-400 max-w-md mx-auto">

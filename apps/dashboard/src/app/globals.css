@@ -125,6 +125,19 @@ code, pre, .font-mono {
   transform: translateY(-1px);
 }
 
+/* Giant LangChain Watermark Typography */
+.huge-outline-text {
+  font-size: clamp(3.5rem, 11vw, 9.5rem);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(127, 200, 255, 0.12);
+  line-height: 0.95;
+  user-select: none;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
