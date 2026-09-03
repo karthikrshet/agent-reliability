@@ -98,21 +98,48 @@ class OpenAIAgentAdapter(AgentAdapter):
         ]
 
         # Build OpenAI tools schema list
-        tools_schema: list[dict[str, Any]] = [
-            {
-                "type": "function",
-                "function": {
-                    "name": tool_name,
-                    "description": f"Execute tool {tool_name}",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {},
-                        "additionalProperties": True,
-                    },
-                },
-            }
-            for tool_name in context.available_tools
-        ]
+        tools_schema: list[dict[str, Any]] = []
+        for t in context.available_tools:
+            if isinstance(t, dict):
+                if "type" in t and "function" in t:
+                    tools_schema.append(t)
+                elif "name" in t:
+                    tools_schema.append(
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": str(t["name"]),
+                                "description": str(
+                                    t.get("description", f"Execute tool {t['name']}")
+                                ),
+                                "parameters": t.get(
+                                    "parameters",
+                                    {
+                                        "type": "object",
+                                        "properties": {},
+                                        "additionalProperties": True,
+                                    },
+                                ),
+                            },
+                        }
+                    )
+                else:
+                    tools_schema.append(t)
+            elif isinstance(t, str):
+                tools_schema.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": t,
+                            "description": f"Execute tool {t}",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": True,
+                            },
+                        },
+                    }
+                )
 
         adapter_state: dict[str, Any] = {
             "messages": messages,
