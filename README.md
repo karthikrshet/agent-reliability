@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/logo.png" width="180" alt="Agent Reliability Lab Logo" />
+  <img src="docs/assets/logo.png" width="160" alt="Agent Reliability Lab Logo" />
 </p>
 
 <h1 align="center">Agent Reliability Lab (ARL)</h1>
@@ -20,6 +20,10 @@
   <a href="#"><img src="https://img.shields.io/badge/Type%20Safety-MyPy%20Strict-blue?style=flat-square" alt="MyPy" /></a>
   <a href="#"><img src="https://img.shields.io/badge/MCP-2024--11--05%20Ready-06b6d4?style=flat-square" alt="MCP" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-f59e0b?style=flat-square" alt="License" /></a>
+</p>
+
+<p align="center">
+  <img src="docs/assets/hero-cyber-core.jpg" width="100%" alt="Agent Reliability Lab Cybernetic Core and Holographic Containment Shield" />
 </p>
 
 ---
@@ -72,6 +76,14 @@ sequenceDiagram
     Note over ARL: Evaluation Phase: InvariantEngine evaluates world state:<br/>Invariant $.refunds count_lte 1 ❌ VIOLATION (found 2)<br/>Generated: ARL-FAIL-1042 (severity: CRITICAL)
 ```
 
+### Trace Waterfall Inspector
+
+When an invariant is violated, ARL outputs a deterministic execution trace with step-by-step latency, injected fault markers, and mathematical violation proofs:
+
+<p align="center">
+  <img src="docs/assets/trace-inspector.jpg" width="100%" alt="ARL Waterfall Trace Inspector Mockup" />
+</p>
+
 Developers can immediately inspect the failure trace:
 ```bash
 agentlab replay ARL-FAIL-1042
@@ -83,9 +95,9 @@ agentlab rerun ARL-FAIL-1042
 
 ---
 
-## 🏛 Architecture
+## 🏛 Core Architecture & Engines
 
-ARL sits between your agent and its dependencies as a non-invasive interceptor:
+ARL is designed as three modular, decoupled engines working in synchrony:
 
 ```mermaid
 graph TD
@@ -131,12 +143,15 @@ graph TD
 
 ---
 
-## 🛠 Core Technical Differentiators
+### 1. `arl.fault_engine`: Seeded Chaos Injection
 
-### 1. Deterministic Fault Injection
-Inject realistic failures without modifying your agent's source code:
+<p align="center">
+  <img src="docs/assets/diagram-fault-engine.jpg" width="100%" alt="Fault Engine Architecture Diagram" />
+</p>
+
+The **Fault Engine** provides deterministic chaos injection without touching agent source code. A seeded pseudorandom number generator (PRNG) ensures that every trial can be reproduced with bitwise precision:
 - `timeout`: Network / socket timeouts before dependency execution.
-- `latency`: Deterministic artificial latency spikes.
+- `latency`: Deterministic artificial latency spikes with jitter models.
 - `http_429`: Rate limit exceeded with custom `Retry-After` headers.
 - `http_500` / `http_503`: Transient upstream server and gateway errors.
 - `connection_reset`: Abrupt TCP socket teardowns.
@@ -145,36 +160,72 @@ Inject realistic failures without modifying your agent's source code:
 - `duplicate_response`: Repeated responses to test idempotency handling.
 - `timeout_after_effect`: Critical distributed-systems failure where side effects commit but responses are dropped.
 
-### 2. Deterministic Invariant Engine (Zero `eval()`)
-Critical pass/fail decisions must **never** depend on an LLM-as-a-judge that hallucinates or changes verdicts across runs. ARL features a typed invariant engine with 13 safe operators:
+---
+
+### 2. `arl.grading_engine`: 13 Typed Invariant Operators (Zero `eval()`)
+
+<p align="center">
+  <img src="docs/assets/diagram-grading-engine.jpg" width="100%" alt="Grading Engine Architecture Diagram" />
+</p>
+
+Critical pass/fail decisions must **never** depend on an LLM-as-a-judge that hallucinates or changes verdicts across runs. ARL features a typed invariant engine with 13 safe operators executing against a parsed JMESPath AST:
 - **Existence**: `exists`, `not_exists`
 - **Equality**: `eq`, `neq`
 - **Numeric Ordering**: `lt`, `lte`, `gt`, `gte`
 - **Collection Counts**: `count_eq`, `count_lte`, `count_gte`
 - **Containment**: `contains`, `not_contains`
 
-Expressions use safe JMESPath / dot-notation traversal. Any syntax error or type mismatch results in `status=ERROR` and is never converted to `PASS`.
+> [!IMPORTANT]
+> ARL executes **zero `eval()` calls**. Invariant expressions use safe JMESPath / dot-notation traversal. Any syntax error or type mismatch results in `status=ERROR` and is never converted to `PASS`.
 
-### 3. Automatic Secret & PII Redaction
-`ToolProxy` recursively sanitizes all tool arguments, responses, and events before persisting to evidence:
-- Redacts keys: `authorization`, `auth_token`, `api_key`, `apikey`, `secret`, `password`, `cookie`, `bearer`, `token`, `credential`.
-- Replaces with `[REDACTED]` to prevent credential exfiltration in CI artifacts.
+---
 
-### 4. Tamper-Evident SHA-256 Evidence Chain
-Every state transition, tool call, and fault injection is cryptographically linked:
+### 3. `arl.evidence`: Tamper-Evident SHA-256 Block Chain
+
+<p align="center">
+  <img src="docs/assets/diagram-evidence-ledger.jpg" width="100%" alt="Evidence Ledger Architecture Diagram" />
+</p>
+
+Every trial state transition, tool call, and fault injection is cryptographically linked into an immutable block chain:
 $$\text{hash}(event_n) = \text{SHA-256}(\text{hash}_{n-1} + \text{canonical\_payload})$$
-Audit logs verify that zero events have been deleted, altered, or reordered.
 
-### 5. Failure Replay & Fail-Closed CI Gates
-- **`agentlab replay <id>`**: Reconstructs execution history, active faults, violated invariants, and diagnosis from disk.
-- **`agentlab rerun <id>`**: Deterministically re-runs the scenario with the identical seed and fault schedule.
-- **`agentlab test <path> --gate`**: Evaluates critical invariant violations and regression delta. Exits with non-zero exit code `1` if any critical safety rule is broken.
+- **Zero Audit Tampering**: Persisted `.arl/runs/<run-id>/evidence.jsonl` files cannot have events deleted or reordered without breaking the SHA-256 chain.
+- **Single-Command Replay**: Full execution timeline reconstructible via `agentlab replay <id>`.
 
-### 6. Statistical Rigor
-Never trust a single test run for non-deterministic AI systems. ARL reports:
-- Number of trials ($n$)
-- 95% Wilson Score confidence intervals: $[\text{lower}, \text{upper}]$
-- Unbiased $\text{Pass}@1$ and $\text{Pass}@k$ estimators
+---
+
+## 🎯 Tested at Scale: 167 Autonomous Agents in Career-Agents
+
+<p align="center">
+  <img src="docs/assets/case-study-mcp.jpg" width="100%" alt="Career-Agents Benchmark Telemetry and Wilson Confidence Intervals" />
+</p>
+
+ARL was validated across the real **Career-Agents** multi-agent repository (167 registered autonomous specialists) to verify:
+1. **Registry Integrity**: 167 agents, workflows, and task bundles schema-validated.
+2. **MCP Conformance**: 100% pass rate on tool discovery (`tools/list`) and initialization handshakes.
+3. **Execution Correctness**: Real tool execution (`search_agents`, `recommend_agents`, `career_assessment`).
+4. **Fallback & Error Boundaries**: Validates that empty inputs trigger documented fallback behavior and invalid tool names return explicit JSON-RPC `-32601` (`MethodNotFound`) errors without unhandled exceptions.
+5. **Statistical Rigor**: Reports 95% Wilson Score confidence intervals $[\text{lower}, \text{upper}]$ to guarantee statistical significance.
+
+Run the Career-Agents verification suite:
+```bash
+export ARL_CAREER_AGENTS_ROOT="/path/to/Career-Agents"
+pytest -v tests/test_career_agents_reliability.py
+```
+
+---
+
+## 🛡 Enterprise Governance & Cryptographic Security
+
+<p align="center">
+  <img src="docs/assets/enterprise-governance.jpg" width="100%" alt="Enterprise Governance and Cryptographic Security Vault" />
+</p>
+
+Autonomous agents operating against production databases, payment gateways, or customer records require enterprise-grade controls:
+- **Tamper-Evident SHA-256 Ledger**: Every trial writes cryptographic hash blocks to disk to guarantee post-facto audit integrity.
+- **Automatic Secret Redaction**: Recursively scrubs `authorization`, `auth_token`, `api_key`, `secret`, `password`, `cookie`, and `bearer` tokens before persisting evidence.
+- **Fail-Closed CI Deployment Gate**: Non-zero exit code `1` in GitHub Actions halts broken agent PR merges automatically.
+- **PostgreSQL `SKIP LOCKED` Distributed Leases**: Multi-worker concurrent evaluation queues without race conditions.
 
 ---
 
@@ -253,17 +304,18 @@ If any critical invariant fails (e.g. duplicate payment, cross-tenant data leak)
 ╰────────────────────────────────────────────────────────────────────────╯
 ```
 
-### 5. Inspect and Replay Failures
+### 5. Launch the Web Dashboard
+ARL includes a full dark cybernetic Next.js 15 App Router operations dashboard:
+
 ```bash
-# Reconstruct execution history from evidence
-agentlab replay ARL-FAIL-95ee-01
+# Start the FastAPI backend
+agentlab serve --port 8000
 
-# Deterministically re-run the failed scenario with identical seed
-agentlab rerun ARL-FAIL-95ee-01
-
-# Export structured report (markdown, json, or text)
-agentlab report latest --format markdown
+# In apps/dashboard:
+npm install
+npm run dev
 ```
+Open [http://localhost:3000](http://localhost:3000) to inspect scenarios, live evaluation runs, Wilson score charts, and cryptographic evidence reports.
 
 ---
 
@@ -280,12 +332,13 @@ agentlab report latest --format markdown
 | `report` | `agentlab report [<run-id>] [-f markdown\|json\|text]` | Output evaluation summary with Wilson confidence intervals |
 | `verify` | `agentlab verify` | Verify cryptographic SHA-256 tamper-evident ledger integrity |
 | `doctor` | `agentlab doctor [--agent-url <url>]` | Run preflight health and environment connectivity diagnostics |
+| `serve` | `agentlab serve [--port 8000]` | Launch the FastAPI operations backend server |
 
 ---
 
 ## 🔌 Model Context Protocol (MCP) Integration
 
-ARL includes a full native MCP server (`apps/mcp`), enabling **Claude Desktop**, **Cursor**, and other MCP-native clients to execute chaos tests directly:
+ARL includes a native MCP server (`apps/mcp`), enabling **Claude Desktop**, **Cursor**, and other MCP-native clients to execute chaos tests directly:
 
 Add to your `mcp_config.json`:
 ```json
@@ -301,26 +354,6 @@ Add to your `mcp_config.json`:
   }
 }
 ```
-
----
-
-## 🎯 Benchmark Target: Career-Agents Integration
-
-ARL includes a battle-tested verification suite for multi-agent platforms such as **Career-Agents** (167 autonomous career specialists).
-
-Configure the workspace path:
-```bash
-export ARL_CAREER_AGENTS_ROOT="/path/to/Career-Agents"  # On Windows: $env:ARL_CAREER_AGENTS_ROOT="D:/the project master/Career-Agents"
-```
-Run the suite:
-```bash
-pytest -v tests/test_career_agents_reliability.py
-```
-Verifies:
-1. **Registry Integrity**: 167 agents, workflows, and task bundles schema-validated.
-2. **MCP Conformance**: Tool discovery (`tools/list`) and initialization handshakes.
-3. **Execution Correctness**: Real tool execution (`search_agents`, `recommend_agents`, `career_assessment`).
-4. **Fallback & Error Boundaries**: Validates that empty inputs trigger documented fallback behavior and invalid tool names return explicit JSON-RPC `-32601` (`MethodNotFound`) errors without crashing.
 
 ---
 
@@ -364,7 +397,7 @@ ARL enforces strict quality gates across every commit:
 - **Strict MyPy Typing** (0 errors across 91 source files)
 - **Ruff Code Formatting & Linting** (0 errors across 133 files)
 
-Run the full verification suite locally:
+Run the verification suite locally:
 ```bash
 # Run tests with coverage
 pytest -q

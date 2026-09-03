@@ -29,6 +29,8 @@ import {
   Twitter,
   Youtube,
   Send,
+  Menu,
+  X,
 } from "lucide-react";
 
 const LIFECYCLE_STAGES = [
@@ -150,6 +152,7 @@ export default function LandingPage() {
     "Click 'Simulate Timeout-After-Effect' to trigger the distributed failure test.",
   ]);
 
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
 
   React.useEffect(() => {
@@ -270,12 +273,90 @@ export default function LandingPage() {
             <Github className="w-3.5 h-3.5" />
             GitHub
           </Link>
-          <Link href="/dashboard" className="lc-button-primary text-xs px-4 py-2">
+          <Link href="/dashboard" className="lc-button-primary text-xs px-4 py-2 hidden xs:inline-flex">
             Launch Dashboard
             <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>
+          <button
+            onClick={() => setMobileNavOpen(!mobileNavOpen)}
+            className="md:hidden p-2 rounded-lg bg-[#080f1e] border border-slate-800 text-slate-300 hover:text-white"
+            aria-label="Toggle navigation menu"
+          >
+            {mobileNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
       </header>
+
+      {/* ── Mobile Navigation Drawer ── */}
+      {mobileNavOpen && (
+        <div className="md:hidden w-full bg-[#030710]/98 border-b border-slate-800 px-6 py-5 space-y-3 flex flex-col z-50 sticky top-[73px] backdrop-blur-2xl animate-in fade-in slide-in-from-top-2">
+          <Link
+            href="#lifecycle"
+            onClick={() => setMobileNavOpen(false)}
+            className="text-sm font-medium text-slate-300 hover:text-cyan-400 py-1.5 border-b border-slate-800/40"
+          >
+            Lifecycle
+          </Link>
+          <Link
+            href="#modules"
+            onClick={() => setMobileNavOpen(false)}
+            className="text-sm font-medium text-slate-300 hover:text-cyan-400 py-1.5 border-b border-slate-800/40"
+          >
+            Engines
+          </Link>
+          <Link
+            href="#benchmarks"
+            onClick={() => setMobileNavOpen(false)}
+            className="text-sm font-medium text-slate-300 hover:text-cyan-400 py-1.5 border-b border-slate-800/40"
+          >
+            Benchmarks
+          </Link>
+          <Link
+            href="#governance"
+            onClick={() => setMobileNavOpen(false)}
+            className="text-sm font-medium text-slate-300 hover:text-cyan-400 py-1.5 border-b border-slate-800/40"
+          >
+            Governance
+          </Link>
+          <Link
+            href="#playground"
+            onClick={() => setMobileNavOpen(false)}
+            className="text-sm font-medium text-slate-300 hover:text-cyan-400 py-1.5 border-b border-slate-800/40"
+          >
+            Live Demo
+          </Link>
+          <Link
+            href="/scenarios"
+            onClick={() => setMobileNavOpen(false)}
+            className="text-sm font-medium text-slate-300 hover:text-cyan-400 py-1.5 border-b border-slate-800/40"
+          >
+            25 Scenarios
+          </Link>
+          <Link
+            href="/reports"
+            onClick={() => setMobileNavOpen(false)}
+            className="text-sm font-medium text-slate-300 hover:text-cyan-400 py-1.5 border-b border-slate-800/40"
+          >
+            Evidence Reports
+          </Link>
+          <div className="pt-2 flex flex-col gap-2.5">
+            <Link
+              href="/dashboard"
+              onClick={() => setMobileNavOpen(false)}
+              className="lc-button-primary text-xs justify-center py-2.5 w-full"
+            >
+              Launch Dashboard <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+            <Link
+              href="https://github.com/karthikrshet/agent-reliability"
+              target="_blank"
+              className="lc-button-secondary text-xs justify-center py-2.5 w-full"
+            >
+              <Github className="w-3.5 h-3.5" /> GitHub Repository
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* ── Hero Section with Cyber Core Background Artwork ── */}
       <section className="w-full relative min-h-[680px] flex flex-col items-center justify-center text-center px-6 overflow-hidden border-b border-slate-900">

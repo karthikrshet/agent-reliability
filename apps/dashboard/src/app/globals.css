@@ -127,7 +127,7 @@ code, pre, .font-mono {
 
 /* Giant LangChain Watermark Typography */
 .huge-outline-text {
-  font-size: clamp(3.5rem, 11vw, 9.5rem);
+  font-size: clamp(2rem, 8.5vw, 9.5rem);
   font-weight: 800;
   letter-spacing: -0.05em;
   color: transparent;
@@ -136,6 +136,8 @@ code, pre, .font-mono {
   user-select: none;
   pointer-events: none;
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 /* Custom scrollbar */

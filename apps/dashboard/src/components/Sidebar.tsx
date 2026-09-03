@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   Sparkles,
   ArrowUpRight,
-  ExternalLink,
+  Menu,
+  X,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -26,13 +27,18 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  return (
-    <aside className="w-72 border-r border-slate-800/80 bg-[#030710]/95 backdrop-blur-xl flex flex-col justify-between shrink-0 h-screen sticky top-0 z-40">
+  const NavContent = () => (
+    <div className="flex flex-col justify-between h-full">
       <div>
-        {/* Brand Header with high-res ARL logo */}
+        {/* Brand Header */}
         <div className="p-6 border-b border-slate-800/80 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 group">
+          <Link
+            href="/"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-3 group"
+          >
             <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-cyan-500/20 border border-cyan-500/40 group-hover:scale-105 transition-transform bg-[#080f1e] flex items-center justify-center shrink-0">
               <Image
                 src="/logo.png"
@@ -53,6 +59,13 @@ export function Sidebar() {
               <p className="text-xs text-slate-400 font-medium">Agent Reliability Lab</p>
             </div>
           </Link>
+          {/* Mobile close button */}
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Workspace Status Badge */}
@@ -78,6 +91,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   isActive
                     ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 shadow-sm shadow-cyan-500/10"
@@ -125,6 +139,54 @@ export function Sidebar() {
           </div>
         </div>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* ── Mobile Top Header Bar (md:hidden) ── */}
+      <div className="md:hidden w-full bg-[#030710]/95 backdrop-blur-xl border-b border-slate-800/80 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-cyan-500/40 bg-[#080f1e] flex items-center justify-center shrink-0">
+            <Image
+              src="/logo.png"
+              alt="ARL Logo"
+              width={32}
+              height={32}
+              className="object-cover"
+              priority
+            />
+          </div>
+          <span className="font-bold text-sm tracking-tight text-white">ARL Platform</span>
+        </Link>
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="p-2 rounded-lg bg-[#080f1e] border border-slate-800 text-slate-300 hover:text-white"
+          aria-label="Toggle navigation menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* ── Mobile Slide-Over Drawer ── */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+            onClick={() => setMobileOpen(false)}
+          />
+          {/* Drawer content */}
+          <div className="relative w-72 max-w-[80vw] bg-[#030710] border-r border-slate-800 h-full shadow-2xl flex flex-col z-10">
+            <NavContent />
+          </div>
+        </div>
+      )}
+
+      {/* ── Desktop Fixed Sidebar (hidden on mobile, visible md+) ── */}
+      <aside className="hidden md:flex w-72 border-r border-slate-800/80 bg-[#030710]/95 backdrop-blur-xl flex-col justify-between shrink-0 h-screen sticky top-0 z-40">
+        <NavContent />
+      </aside>
+    </>
   );
 }
