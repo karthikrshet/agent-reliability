@@ -150,6 +150,16 @@ export default function LandingPage() {
     "Click 'Simulate Timeout-After-Effect' to trigger the distributed failure test.",
   ]);
 
+  const [isPaused, setIsPaused] = useState(false);
+
+  React.useEffect(() => {
+    if (isPaused) return;
+    const timer = setInterval(() => {
+      setActiveStageIndex((prev) => (prev + 1) % LIFECYCLE_STAGES.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [isPaused]);
+
   const activeStage = LIFECYCLE_STAGES[activeStageIndex];
 
   const handleSimulate = () => {
@@ -365,51 +375,54 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Double-Row Partner / Ecosystem Logos Bar ── */}
-      <section className="w-full bg-[#02050b] border-b border-slate-900 py-10 px-6">
-        <div className="max-w-7xl mx-auto space-y-4">
-          <p className="text-center text-xs font-mono uppercase tracking-widest text-slate-500 mb-6">
+      {/* ── Continuous Marquee Logo Scroller ── */}
+      <section className="w-full bg-[#02050b] border-b border-slate-900 py-10 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6 mb-4">
+          <p className="text-center text-xs font-mono uppercase tracking-widest text-slate-500">
             Supported Agent Frameworks, Runtimes &amp; Infrastructure
           </p>
+        </div>
 
-          {/* Row 1 */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 items-center">
-            {ROW1_LOGOS.map((partner) => (
+        {/* Row 1: Forward Marquee */}
+        <div className="w-full overflow-hidden flex py-2">
+          <div className="animate-marquee flex gap-4">
+            {[...ROW1_LOGOS, ...ROW1_LOGOS].map((partner, i) => (
               <div
-                key={partner.name}
-                className="p-3 rounded-xl bg-[#080f1e]/60 border border-slate-800/60 hover:border-cyan-500/40 transition-all text-center group cursor-default"
+                key={i}
+                className="px-5 py-3 rounded-xl bg-[#080f1e]/80 border border-slate-800/80 hover:border-cyan-500/50 hover:bg-[#0c152a] transition-all flex items-center gap-3 shrink-0 shadow-sm group cursor-default"
               >
-                <div className="text-xs font-semibold text-slate-300 group-hover:text-cyan-300 transition-colors truncate">
-                  {partner.name}
-                </div>
-                <div className="text-[10px] text-slate-500 truncate mt-0.5 font-mono">
-                  {partner.desc}
-                </div>
+                <div className="w-2 h-2 rounded-full bg-cyan-400/80 group-hover:scale-125 transition-transform shadow-sm shadow-cyan-400/50" />
+                <span className="text-xs font-semibold text-slate-200 group-hover:text-cyan-300 transition-colors">{partner.name}</span>
+                <span className="text-[10px] text-slate-500 font-mono">({partner.desc})</span>
               </div>
             ))}
           </div>
+        </div>
 
-          {/* Row 2 */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 items-center">
-            {ROW2_LOGOS.map((partner) => (
+        {/* Row 2: Reverse Marquee */}
+        <div className="w-full overflow-hidden flex py-2">
+          <div className="animate-marquee-reverse flex gap-4">
+            {[...ROW2_LOGOS, ...ROW2_LOGOS].map((partner, i) => (
               <div
-                key={partner.name}
-                className="p-3 rounded-xl bg-[#080f1e]/40 border border-slate-800/40 hover:border-cyan-500/40 transition-all text-center group cursor-default"
+                key={i}
+                className="px-5 py-3 rounded-xl bg-[#080f1e]/50 border border-slate-800/60 hover:border-cyan-500/50 hover:bg-[#0c152a] transition-all flex items-center gap-3 shrink-0 shadow-sm group cursor-default"
               >
-                <div className="text-xs font-semibold text-slate-400 group-hover:text-cyan-300 transition-colors truncate">
-                  {partner.name}
-                </div>
-                <div className="text-[10px] text-slate-600 truncate mt-0.5 font-mono">
-                  {partner.desc}
-                </div>
+                <div className="w-2 h-2 rounded-full bg-indigo-400/80 group-hover:scale-125 transition-transform shadow-sm shadow-indigo-400/50" />
+                <span className="text-xs font-semibold text-slate-300 group-hover:text-cyan-300 transition-colors">{partner.name}</span>
+                <span className="text-[10px] text-slate-500 font-mono">({partner.desc})</span>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Interactive Lifecycle Section (Screenshot 1 Exact Re-creation) ── */}
-      <section id="lifecycle" className="w-full max-w-7xl mx-auto px-6 py-24">
+      {/* ── Interactive Lifecycle Section with Auto-Advancing Wheel ── */}
+      <section
+        id="lifecycle"
+        className="w-full max-w-7xl mx-auto px-6 py-24"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+      >
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="font-mono text-xs text-cyan-400 uppercase tracking-widest bg-cyan-950/80 px-3 py-1 rounded-full border border-cyan-800/60">
             End-to-End Reliability Loop
@@ -422,32 +435,40 @@ export default function LandingPage() {
           </p>
         </div>
 
-        {/* Lifecycle Interactive Grid: Ring Arc on Left, Content in Center, Trace UI on Right */}
-        <div className="glass-panel rounded-2xl p-6 sm:p-10 border border-cyan-500/20 shadow-2xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Circular Wheel / Stage Selector (Left 3 cols) */}
-          <div className="lg:col-span-3 flex flex-row lg:flex-col justify-center gap-2 overflow-x-auto pb-4 lg:pb-0">
+        {/* Lifecycle Interactive Grid: Radial Arc on Left, Content in Center, Trace UI on Right */}
+        <div className="glass-panel rounded-2xl p-6 sm:p-10 border border-cyan-500/20 shadow-2xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative overflow-hidden">
+          {/* Subtle Ambient Radial Lighting */}
+          <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Left 3 cols: Orbit Stepper with Progress Bar */}
+          <div className="lg:col-span-3 flex flex-row lg:flex-col justify-center gap-2.5 overflow-x-auto pb-4 lg:pb-0">
             {LIFECYCLE_STAGES.map((stage, idx) => {
               const isActive = activeStageIndex === idx;
               return (
                 <button
                   key={stage.id}
                   onClick={() => setActiveStageIndex(idx)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-mono tracking-wide transition-all text-left border shrink-0 ${
+                  className={`relative flex items-center justify-between px-4 py-3.5 rounded-xl text-xs font-mono tracking-wide transition-all text-left border overflow-hidden shrink-0 ${
                     isActive
                       ? "bg-cyan-500/20 text-cyan-300 border-cyan-400 shadow-md shadow-cyan-500/20 translate-x-1"
                       : "bg-[#040812]/80 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700"
                   }`}
                 >
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      isActive ? "bg-cyan-400 animate-pulse" : "bg-slate-600"
-                    }`}
-                  />
-                  <div>
-                    <div className="font-bold text-slate-200">
+                  <div className="flex items-center gap-3 relative z-10">
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        isActive ? "bg-cyan-400 animate-pulse" : "bg-slate-600"
+                      }`}
+                    />
+                    <span className="font-bold text-slate-200">
                       0{idx + 1}. {stage.name}
-                    </div>
+                    </span>
                   </div>
+
+                  {/* Auto-cycling progress bar indicator on active tab */}
+                  {isActive && (
+                    <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-cyan-400 to-emerald-400 animate-progress-fill" />
+                  )}
                 </button>
               );
             })}
@@ -620,8 +641,66 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Tested at Scale: Career-Agents 167-Agent Benchmark (Case Study Showcase) ── */}
+      <section id="benchmarks" className="w-full bg-[#02050b] border-y border-slate-900 py-24 px-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-6 space-y-6">
+            <span className="font-mono text-xs text-cyan-400 uppercase tracking-widest bg-cyan-950/80 px-3 py-1 rounded-full border border-cyan-800/60">
+              Verified Production Benchmark
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-bold text-white tracking-tight leading-tight">
+              Tested at Scale: 167 Autonomous Agents in Career-Agents
+            </h2>
+            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+              ARL doesn&apos;t evaluate synthetic toys. We verified the entire Career-Agents multi-agent repository across Model Context Protocol (MCP) tool discovery, JSON-RPC stdio execution, and zero unhandled exceptions under malformed chaos inputs.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4 pt-2 font-mono text-xs">
+              <div className="p-4 rounded-xl bg-[#080f1e] border border-cyan-500/20">
+                <div className="text-2xl font-bold text-cyan-300">167 / 167</div>
+                <div className="text-slate-400 mt-1">Autonomous Agents Validated</div>
+              </div>
+              <div className="p-4 rounded-xl bg-[#080f1e] border border-cyan-500/20">
+                <div className="text-2xl font-bold text-emerald-400">100%</div>
+                <div className="text-slate-400 mt-1">MCP Conformance Tests</div>
+              </div>
+              <div className="p-4 rounded-xl bg-[#080f1e] border border-cyan-500/20">
+                <div className="text-2xl font-bold text-amber-400">0</div>
+                <div className="text-slate-400 mt-1">Unhandled -32601 Leaks</div>
+              </div>
+              <div className="p-4 rounded-xl bg-[#080f1e] border border-cyan-500/20">
+                <div className="text-2xl font-bold text-indigo-400">95% CI</div>
+                <div className="text-slate-400 mt-1">Wilson Statistical Bounds</div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <Link
+                href="/dashboard"
+                className="lc-button-primary text-xs px-5 py-2.5 inline-flex"
+              >
+                Inspect Benchmark Suite
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+          <div className="lg:col-span-6 relative">
+            <div className="rounded-2xl overflow-hidden border border-cyan-500/30 shadow-2xl shadow-cyan-950/40 group">
+              <Image
+                src="/images/case-study-mcp.jpg"
+                alt="Career-Agents Benchmark Telemetry and Wilson Confidence Intervals"
+                width={720}
+                height={405}
+                className="w-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Interactive Live Chaos Playground ── */}
-      <section id="playground" className="w-full bg-[#02050b] border-y border-slate-900 py-20 px-6">
+      <section id="playground" className="w-full bg-[#030710] py-24 px-6 border-b border-slate-900">
         <div className="max-w-7xl mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="font-mono text-xs text-amber-400 uppercase tracking-widest bg-amber-950/60 px-3 py-1 rounded-full border border-amber-800/60">
@@ -712,6 +791,77 @@ export default function LandingPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Enterprise Governance & Cryptographic Security Section ── */}
+      <section id="governance" className="w-full bg-[#02050b] border-b border-slate-900 py-24 px-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-6 relative order-2 lg:order-1">
+            <div className="rounded-2xl overflow-hidden border border-cyan-500/30 shadow-2xl shadow-cyan-950/40 group">
+              <Image
+                src="/images/enterprise-governance.jpg"
+                alt="Cryptographic SHA-256 Ledger, Fail-Closed CI Gate, and Secret Redaction"
+                width={720}
+                height={405}
+                className="w-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
+              />
+            </div>
+          </div>
+
+          <div className="lg:col-span-6 space-y-6 order-1 lg:order-2">
+            <span className="font-mono text-xs text-indigo-400 uppercase tracking-widest bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800/60">
+              Enterprise Governance &amp; Compliance
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-bold text-white tracking-tight leading-tight">
+              Cryptographically Auditable Agent Infrastructure
+            </h2>
+            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+              Autonomous agents that touch customer databases, financial APIs, or sensitive documents cannot rely on probabilistic tests. ARL provides deterministic, tamper-evident guarantees.
+            </p>
+
+            <div className="space-y-4 pt-1">
+              <div className="flex items-start gap-3 text-sm">
+                <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <strong className="text-white">Tamper-Evident SHA-256 Chain</strong>:{" "}
+                  <span className="text-slate-400">Every trial persists cryptographic block hashes on disk to guarantee zero post-facto audit tampering.</span>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 text-sm">
+                <div className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <strong className="text-white">Automatic Secret &amp; Token Redaction</strong>:{" "}
+                  <span className="text-slate-400">Recursively cleans bearer tokens, API keys, and cookie headers before persisting evidence.</span>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 text-sm">
+                <div className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <strong className="text-white">Fail-Closed CI Gate</strong>:{" "}
+                  <span className="text-slate-400">Critical invariant failures exit with code 1 in GitHub Actions, stopping broken agent PR merges cold.</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <Link
+                href="/reports"
+                className="lc-button-secondary text-xs px-5 py-2.5 inline-flex"
+              >
+                View Cryptographic Evidence Reports
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>

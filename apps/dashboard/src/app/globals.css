@@ -154,3 +154,78 @@ code, pre, .font-mono {
   background: rgba(127, 200, 255, 0.4);
 }
 
+/* ── LangChain Signature Keyframe Animations ── */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes marquee-reverse {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 35s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+.animate-marquee-reverse {
+  display: flex;
+  width: max-content;
+  animation: marquee-reverse 35s linear infinite;
+}
+
+.animate-marquee-reverse:hover {
+  animation-play-state: paused;
+}
+
+@keyframes beamPulse {
+  0%, 100% {
+    opacity: 0.65;
+    filter: drop-shadow(0 0 10px rgba(127, 200, 255, 0.6));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 22px rgba(127, 200, 255, 0.95)) drop-shadow(0 0 40px rgba(95, 150, 255, 0.5));
+  }
+}
+
+.animate-beam {
+  animation: beamPulse 3s ease-in-out infinite;
+}
+
+@keyframes spinOrbit {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-spin-orbit {
+  animation: spinOrbit 40s linear infinite;
+}
+
+@keyframes floatGentle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: floatGentle 5s ease-in-out infinite;
+}
+
+/* Progress timer bar for active lifecycle phase */
+@keyframes progressFill {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+.animate-progress-fill {
+  animation: progressFill 5s linear infinite;
+}
+
+
