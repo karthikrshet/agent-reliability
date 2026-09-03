@@ -41,6 +41,15 @@ class FaultType(str, enum.Enum):
     DATABASE_DEADLOCK = "database_deadlock"
     REDIS_UNAVAILABILITY = "redis_unavailability"
 
+    # Canonical v0.3 aliases
+    TIMEOUT = "timeout"
+    LATENCY = "latency"
+    CONNECTION_RESET = "connection_reset"
+    MALFORMED_RESPONSE = "malformed_response"
+    EMPTY_RESPONSE = "empty_response"
+    DUPLICATE_RESPONSE = "duplicate_response"
+    TIMEOUT_AFTER_EFFECT = "timeout_after_effect"
+
 
 class FaultTrigger(BaseModel):
     """When to trigger a fault."""
@@ -141,3 +150,43 @@ class FaultEvent(BaseModel):
         default=None,
         description="Whether the agent received an error response (True) or a silent fault",
     )
+
+
+class FaultSpec(BaseModel):
+    """Normalized specification for a fault injection experiment."""
+
+    model_config = {"frozen": True}
+
+    id: str = Field(..., description="Unique fault specification identifier")
+    target: str = Field(
+        ...,
+        description="Target tool or dependency name (e.g. 'refund.create', 'http.checkout')",
+    )
+    fault_type: FaultType = Field(..., description="Type of fault to inject")
+    trigger: FaultTrigger = Field(default_factory=FaultTrigger)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    seed: int = Field(default=42, description="Seed for deterministic fault injection")
+    side_effect_committed: bool = Field(
+        default=False,
+        description="True if side effect succeeds but network response is dropped/timed out",
+    )
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class FaultResult(BaseModel):
+    """Execution outcome of an injected fault."""
+
+    model_config = {"frozen": True}
+
+    fault_id: str = Field(..., description="Reference to the FaultSpec identifier")
+    injected: bool = Field(..., description="Whether the fault was actively injected")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    target: str = Field(..., description="Target tool or service")
+    observed_effect: str = Field(..., description="Summary of the simulated effect")
+    side_effect_committed: bool = Field(default=False)
+    duration_ms: int = Field(default=0, description="Latency or delay injected in milliseconds")
+    evidence_reference: str | None = Field(
+        default=None, description="Linked Evidence ID in the cryptographic ledger"
+    )
+    error_type: str | None = Field(default=None, description="Simulated error code or class")
+    error_message: str | None = Field(default=None, description="Simulated error message")

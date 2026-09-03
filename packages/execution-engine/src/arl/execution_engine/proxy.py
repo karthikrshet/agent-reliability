@@ -24,11 +24,40 @@ from typing import Any, Protocol
 
 import jsonschema
 
-from arl.core.domain.faults import FaultEvent
+from arl.core.domain.faults import FaultEvent, FaultResult
 from arl.core.domain.tools import ToolResult
 from arl.fault_engine.scheduler import FaultScheduler, ScheduledFault
 
 logger = logging.getLogger(__name__)
+
+REDACTED_KEY_SUBSTRINGS = (
+    "authorization",
+    "auth_token",
+    "api_key",
+    "apikey",
+    "secret",
+    "password",
+    "credential",
+    "cookie",
+    "bearer",
+    "token",
+)
+
+
+def sanitize_payload(data: Any) -> Any:
+    """Recursively redact sensitive keys (tokens, secrets, credentials) from payloads."""
+    if isinstance(data, dict):
+        sanitized: dict[str, Any] = {}
+        for k, v in data.items():
+            k_lower = str(k).lower()
+            if any(sub in k_lower for sub in REDACTED_KEY_SUBSTRINGS):
+                sanitized[k] = "[REDACTED]"
+            else:
+                sanitized[k] = sanitize_payload(v)
+        return sanitized
+    if isinstance(data, list):
+        return [sanitize_payload(item) for item in data]
+    return data
 
 
 class EnvironmentProtocol(Protocol):
@@ -54,6 +83,7 @@ class ToolProxy:
         }
         self.fault_scheduler = fault_scheduler
         self.recorded_fault_events: list[FaultEvent] = []
+        self.recorded_fault_results: list[FaultResult] = []
 
     async def execute(
         self,
@@ -69,13 +99,14 @@ class ToolProxy:
         """
         start_time = time.perf_counter()
         fault_event: FaultEvent | None = None
+        safe_arguments = sanitize_payload(arguments)
 
         # 1. Check if fault scheduler fires
         scheduled_fault: ScheduledFault | None = None
         if self.fault_scheduler is not None:
             scheduled_fault = self.fault_scheduler.check(
                 tool_name=tool_name,
-                call_arguments=arguments,
+                call_arguments=safe_arguments,
                 elapsed_seconds=elapsed_seconds,
             )
 
@@ -91,11 +122,11 @@ class ToolProxy:
             result_payload, is_error, error_type = await self._apply_fault_behavior(
                 scheduled_fault=scheduled_fault,
                 tool_name=tool_name,
-                arguments=arguments,
+                arguments=safe_arguments,
             )
         else:
             # 2. Validate tool schema if tool definition is known
-            validation_error = self._validate_arguments(tool_name, arguments)
+            validation_error = self._validate_arguments(tool_name, safe_arguments)
             if validation_error is not None:
                 result_payload = {"error": "ValidationError", "detail": validation_error}
                 is_error = True
@@ -103,7 +134,7 @@ class ToolProxy:
             else:
                 # 3. Normal execution in environment
                 try:
-                    result_payload = self.environment.execute_tool(tool_name, arguments)
+                    result_payload = self.environment.execute_tool(tool_name, safe_arguments)
                     is_error = "error" in result_payload
                     error_type = result_payload.get("error") if is_error else None
                 except Exception as exc:
@@ -119,6 +150,20 @@ class ToolProxy:
             if isinstance(result_payload, dict)
             else None
         )
+
+        # Record typed FaultResult if fault was scheduled
+        if scheduled_fault is not None and self.fault_scheduler is not None:
+            fault_res = self.fault_scheduler.make_fault_result(
+                scheduled=scheduled_fault,
+                tool_name=tool_name,
+                injected=True,
+                observed_effect=str(err_msg or result_payload.get("error") or "fault_injected"),
+                duration_ms=_duration_ms,
+                evidence_reference=fault_event.id if fault_event else None,
+                error_type=error_type,
+                error_message=str(err_msg) if err_msg else None,
+            )
+            self.recorded_fault_results.append(fault_res)
 
         tool_result = ToolResult(
             id=f"res-{tool_call_id}",
@@ -194,6 +239,15 @@ class ToolProxy:
                 "HTTP429",
             )
 
+        if fault_type in ("latency", "delayed_result"):
+            delay = behaviour.delay_ms if behaviour.delay_ms > 0 else 1000
+            await asyncio.sleep(delay / 1000.0)
+            try:
+                res = self.environment.execute_tool(tool_name, arguments)
+                return res, "error" in res, res.get("error") if "error" in res else None
+            except Exception as exc:
+                return {"error": "ExecutionError", "detail": str(exc)}, True, "ExecutionError"
+
         if fault_type == "dns_failure":
             return (
                 {
@@ -214,17 +268,17 @@ class ToolProxy:
                 "ConnectionRefused",
             )
 
-        if fault_type == "dropped_response":
+        if fault_type in ("connection_reset", "dropped_response"):
             return (
                 {
                     "error": "ConnectionReset",
-                    "message": "Remote host closed connection without response",
+                    "message": f"Connection reset by peer for {tool_name}",
                 },
                 True,
                 "ConnectionReset",
             )
 
-        if fault_type == "timeout_before_execution":
+        if fault_type in ("timeout", "timeout_before_execution"):
             return (
                 {
                     "error": "TimeoutError",
@@ -234,7 +288,7 @@ class ToolProxy:
                 "TimeoutError",
             )
 
-        if fault_type == "timeout_after_execution":
+        if fault_type in ("timeout_after_effect", "timeout_after_execution"):
             if behaviour.side_effect_committed:
                 # Commit side effect to environment, but simulate timeout error returning to agent
                 self.environment.execute_tool(tool_name, arguments)
@@ -248,12 +302,30 @@ class ToolProxy:
                 "TimeoutError",
             )
 
-        if fault_type == "malformed_json":
+        if fault_type in ("malformed_response", "malformed_json"):
             raw_body = behaviour.response_body or '{"malformed": '
             return (
                 {"raw_output": raw_body, "parse_error": "JSONDecodeError: Unterminated string"},
                 True,
                 "MalformedJSON",
+            )
+
+        if fault_type in ("empty_response", "empty_result"):
+            return (
+                {},
+                False,
+                None,
+            )
+
+        if fault_type in ("duplicate_response", "duplicated_result"):
+            try:
+                real_res = self.environment.execute_tool(tool_name, arguments)
+            except Exception:
+                real_res = {"result": "success"}
+            return (
+                {"duplicate_payload": [real_res, real_res], "is_duplicate": True},
+                False,
+                None,
             )
 
         if fault_type == "schema_invalid_result":

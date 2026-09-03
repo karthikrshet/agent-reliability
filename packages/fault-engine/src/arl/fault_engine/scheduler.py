@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from arl.core.domain.faults import FaultEvent, FaultType
+from arl.core.domain.faults import FaultEvent, FaultResult, FaultType
 from arl.core.errors import FaultInjectionError
 
 if TYPE_CHECKING:
@@ -214,6 +214,39 @@ class FaultScheduler:
             fault_seed=self.trial_fault_seed,
             injected_at=datetime.now(UTC),
             agent_observed_error=None,  # set after the fault fires
+        )
+
+    def make_fault_result(
+        self,
+        scheduled: ScheduledFault,
+        tool_name: str,
+        injected: bool,
+        observed_effect: str,
+        duration_ms: int = 0,
+        evidence_reference: str | None = None,
+        error_type: str | None = None,
+        error_message: str | None = None,
+    ) -> FaultResult:
+        """Create a typed FaultResult outcome record for an injected fault."""
+        from arl.core.domain.faults import FaultResult
+
+        behaviour_spec = scheduled.entry.behaviour
+        entry_id = getattr(
+            scheduled.entry,
+            "id",
+            f"flt-{tool_name}-{self._invocation_counts.get(tool_name, 1)}",
+        )
+        return FaultResult(
+            fault_id=entry_id,
+            injected=injected,
+            timestamp=datetime.now(UTC),
+            target=tool_name,
+            observed_effect=observed_effect,
+            side_effect_committed=bool(behaviour_spec.side_effect_committed),
+            duration_ms=duration_ms,
+            evidence_reference=evidence_reference,
+            error_type=error_type,
+            error_message=error_message,
         )
 
 

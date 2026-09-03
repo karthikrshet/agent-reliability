@@ -5,7 +5,17 @@ Re-exports all domain entities for convenient top-level import.
 
 from arl.core.domain.agent import AgentDefinition, AgentTurn, AgentVersion, ModelConfiguration
 from arl.core.domain.environment import Environment, EnvironmentVersion
-from arl.core.domain.faults import FaultEvent, FaultPlan
+from arl.core.domain.failure import FailureRecord
+from arl.core.domain.faults import (
+    FaultBehaviour,
+    FaultEvent,
+    FaultPlan,
+    FaultPlanEntry,
+    FaultResult,
+    FaultSpec,
+    FaultTrigger,
+    FaultType,
+)
 from arl.core.domain.grading import (
     AuditEvent,
     Baseline,
@@ -35,8 +45,15 @@ __all__ = [
     "EvaluationRun",
     "Evidence",
     "ExpectedEffect",
+    "FailureRecord",
+    "FaultBehaviour",
     "FaultEvent",
     "FaultPlan",
+    "FaultPlanEntry",
+    "FaultResult",
+    "FaultSpec",
+    "FaultTrigger",
+    "FaultType",
     "ForbiddenEffect",
     "Grader",
     "GraderResult",

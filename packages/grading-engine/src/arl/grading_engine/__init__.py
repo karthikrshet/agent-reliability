@@ -16,6 +16,14 @@ from arl.grading_engine.deterministic import (
     DeterministicTrialEvaluator,
     EffectMatchGrader,
 )
+from arl.grading_engine.invariants import (
+    InvariantEngine,
+    InvariantResult,
+    InvariantSeverity,
+    InvariantSpec,
+    InvariantStatus,
+    evaluate_invariant,
+)
 from arl.grading_engine.semantic import JudgeEvaluation, LLMJudge
 from arl.grading_engine.stats import (
     compute_mean_and_ci,
@@ -31,10 +39,16 @@ __all__ = [
     "DeterministicTrialEvaluator",
     "EffectMatchGrader",
     "EvaluationRunAggregator",
+    "InvariantEngine",
+    "InvariantResult",
+    "InvariantSeverity",
+    "InvariantSpec",
+    "InvariantStatus",
     "JudgeEvaluation",
     "LLMJudge",
     "RunAggregationResult",
     "compute_mean_and_ci",
     "compute_pass_at_k",
     "compute_wilson_score_interval",
+    "evaluate_invariant",
 ]

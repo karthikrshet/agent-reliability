@@ -189,3 +189,145 @@ async def test_proxy_all_fault_behaviours() -> None:
             tool_call_id="c4", tool_name="order.lookup", arguments={"customer_id": "c1"}
         )
         assert res.is_error == is_err
+
+
+@pytest.mark.asyncio
+async def test_proxy_new_fault_types_and_sanitization() -> None:
+    env = CustomerSupportEnvironment(seed=42)
+
+    # 1. empty_response
+    p_empty = ToolProxy(
+        environment=env,
+        tool_definitions=env.tools,
+        fault_scheduler=FaultScheduler(
+            fault_plan_entries=[
+                FaultPlanEntrySpec(
+                    target="order.lookup",
+                    trigger=FaultTriggerSpec(invocation=1),
+                    behaviour=FaultBehaviourSpec(type="empty_response"),
+                )
+            ],
+            trial_fault_seed=5,
+            trial_id="t5",
+        ),
+    )
+    res_empty, _ = await p_empty.execute(
+        tool_call_id="c_empty", tool_name="order.lookup", arguments={"customer_id": "customer-101"}
+    )
+    assert res_empty.content == {}
+    assert len(p_empty.recorded_fault_results) == 1
+    assert p_empty.recorded_fault_results[0].target == "order.lookup"
+
+    # 2. duplicate_response
+    p_dup = ToolProxy(
+        environment=env,
+        tool_definitions=env.tools,
+        fault_scheduler=FaultScheduler(
+            fault_plan_entries=[
+                FaultPlanEntrySpec(
+                    target="order.lookup",
+                    trigger=FaultTriggerSpec(invocation=1),
+                    behaviour=FaultBehaviourSpec(type="duplicate_response"),
+                )
+            ],
+            trial_fault_seed=6,
+            trial_id="t6",
+        ),
+    )
+    res_dup, _ = await p_dup.execute(
+        tool_call_id="c_dup", tool_name="order.lookup", arguments={"customer_id": "customer-101"}
+    )
+    assert res_dup.content.get("is_duplicate") is True
+    assert "duplicate_payload" in res_dup.content
+
+    # 3. secret redaction in sanitize_payload
+    from arl.execution_engine.proxy import sanitize_payload
+
+    raw_args = {
+        "customer_id": "customer-101",
+        "api_key": "sk-secret-12345",
+        "authorization": "Bearer token-abc",
+        "nested": {"cookie": "session=xyz", "token": "tok-999"},
+    }
+    sanitized = sanitize_payload(raw_args)
+    assert sanitized["customer_id"] == "customer-101"
+    assert sanitized["api_key"] == "[REDACTED]"
+    assert sanitized["authorization"] == "[REDACTED]"
+    assert sanitized["nested"]["cookie"] == "[REDACTED]"
+    assert sanitized["nested"]["token"] == "[REDACTED]"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_proxy_unknown_tool_and_schema_validation() -> None:
+    env = CustomerSupportEnvironment(seed=42)
+    proxy = ToolProxy(environment=env, tool_definitions=env.tools)
+
+    # 1. Unknown tool
+    res_unknown, _ = await proxy.execute(
+        tool_call_id="c_unk",
+        tool_name="nonexistent.tool",
+        arguments={},
+    )
+    assert res_unknown.is_error is True
+    assert res_unknown.error_code == "UnknownToolError"
+
+    # 2. Invalid argument types
+    res_bad_args, _ = await proxy.execute(
+        tool_call_id="c_bad",
+        tool_name="order.lookup",
+        arguments="not-a-dict",  # type: ignore[arg-type]
+    )
+    assert res_bad_args.is_error is True
+    assert res_bad_args.error_code == "ValidationError"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_proxy_empty_and_corrupted_response_faults() -> None:
+    env = CustomerSupportEnvironment(seed=42)
+
+    # 1. empty_response
+    p_empty = ToolProxy(
+        environment=env,
+        tool_definitions=env.tools,
+        fault_scheduler=FaultScheduler(
+            fault_plan_entries=[
+                FaultPlanEntrySpec(
+                    target="order.lookup",
+                    trigger=FaultTriggerSpec(invocation=1),
+                    behaviour=FaultBehaviourSpec(type="empty_response"),
+                )
+            ],
+            trial_fault_seed=7,
+            trial_id="t7",
+        ),
+    )
+    res_empty, _ = await p_empty.execute(
+        tool_call_id="c_empty", tool_name="order.lookup", arguments={"customer_id": "customer-101"}
+    )
+    assert res_empty.content == {}
+
+    # 2. malformed_response
+    p_corrupt = ToolProxy(
+        environment=env,
+        tool_definitions=env.tools,
+        fault_scheduler=FaultScheduler(
+            fault_plan_entries=[
+                FaultPlanEntrySpec(
+                    target="order.lookup",
+                    trigger=FaultTriggerSpec(invocation=1),
+                    behaviour=FaultBehaviourSpec(type="malformed_response"),
+                )
+            ],
+            trial_fault_seed=8,
+            trial_id="t8",
+        ),
+    )
+    res_corrupt, _ = await p_corrupt.execute(
+        tool_call_id="c_corrupt",
+        tool_name="order.lookup",
+        arguments={"customer_id": "customer-101"},
+    )
+    assert "raw_output" in res_corrupt.content
+    assert res_corrupt.error_code == "MalformedJSON"

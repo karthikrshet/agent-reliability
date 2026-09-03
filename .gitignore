@@ -84,12 +84,14 @@ redis-data/
 Thumbs.db
 
 # ─────────────────────────────────────────────
-# Testing artifacts
+# Testing artifacts & local execution data
 # ─────────────────────────────────────────────
 test-results/
 playwright-report/
 test-report.xml
 junit.xml
+.arl/
+
 
 # ─────────────────────────────────────────────
 # Build artifacts

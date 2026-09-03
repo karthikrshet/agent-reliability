@@ -12,13 +12,15 @@ Agent Reliability Lab (ARL) evaluation principles:
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
-CAREER_AGENTS_ROOT = Path("D:/the project master/Career-Agents")
+_env_root = os.getenv("ARL_CAREER_AGENTS_ROOT", "D:/the project master/Career-Agents")
+CAREER_AGENTS_ROOT = Path(_env_root)
 
 
 def _get_node_bin() -> str:
@@ -58,7 +60,8 @@ def _create_mcp_client() -> subprocess.Popen[str]:
 
 
 @pytest.mark.skipif(
-    not CAREER_AGENTS_ROOT.exists(), reason="Career-Agents workspace not found on disk"
+    not (CAREER_AGENTS_ROOT.exists() and (CAREER_AGENTS_ROOT / "career-agents.json").exists()),
+    reason="Career-Agents workspace not configured or not found on disk (set ARL_CAREER_AGENTS_ROOT)",
 )
 class TestCareerAgentsReliability:
     def test_01_workspace_integrity_and_doctor(self) -> None:
@@ -152,10 +155,17 @@ class TestCareerAgentsReliability:
             proc.wait(timeout=5)
 
     def test_05_fault_injection_resilience_on_malformed_inputs(self) -> None:
-        """Fault injection: send malformed / empty arguments to ensure no unhandled crashes."""
+        """Fault injection: send malformed arguments and invalid tool names.
+
+        Asserts:
+        1. Empty arguments to recommend_agents invokes documented fallback without crashing.
+        2. Invalid tool calls return explicit JSON-RPC errors (code -32601).
+        3. The MCP process remains healthy throughout.
+        """
         proc = _create_mcp_client()
         try:
-            faulty_call = {
+            # 1. Empty arguments to recommend_agents -> documented fallback behavior
+            empty_call = {
                 "jsonrpc": "2.0",
                 "id": 99,
                 "method": "tools/call",
@@ -166,15 +176,38 @@ class TestCareerAgentsReliability:
             }
             assert proc.stdin is not None
             assert proc.stdout is not None
-            proc.stdin.write(json.dumps(faulty_call) + "\n")
+            proc.stdin.write(json.dumps(empty_call) + "\n")
             proc.stdin.flush()
 
             resp_line = proc.stdout.readline().strip()
             data = json.loads(resp_line)
 
-            assert (
-                "error" in data or data.get("result", {}).get("isError") is True or "result" in data
+            assert "result" in data, "Expected valid result payload for fallback call"
+            content = data["result"].get("content", [{}])[0].get("text", "")
+            assert "recommended_agents" in content, (
+                "Expected documented fallback to return recommended_agents"
             )
+
+            # 2. Invalid tool call -> must return explicit JSON-RPC error
+            invalid_tool_call = {
+                "jsonrpc": "2.0",
+                "id": 100,
+                "method": "tools/call",
+                "params": {
+                    "name": "nonexistent_career_tool",
+                    "arguments": {},
+                },
+            }
+            proc.stdin.write(json.dumps(invalid_tool_call) + "\n")
+            proc.stdin.flush()
+
+            err_line = proc.stdout.readline().strip()
+            err_data = json.loads(err_line)
+            assert "error" in err_data, "Expected explicit JSON-RPC error on invalid tool"
+            assert err_data["error"].get("code") == -32601, (
+                "Expected JSON-RPC MethodNotFound (-32601)"
+            )
+
             assert proc.poll() is None, "MCP process must survive faulty input without dying"
         finally:
             proc.terminate()
