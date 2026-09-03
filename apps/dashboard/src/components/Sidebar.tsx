@@ -11,10 +11,12 @@ import {
   ShieldCheck,
   Zap,
   CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { name: "Overview", href: "/", icon: Activity },
+  { name: "Landing Page", href: "/", icon: Sparkles },
+  { name: "Overview", href: "/dashboard", icon: Activity },
   { name: "Scenarios (25)", href: "/scenarios", icon: Boxes },
   { name: "Evaluation Runs", href: "/runs", icon: PlayCircle },
   { name: "Audit Reports & Evidence", href: "/reports", icon: FileCheck },

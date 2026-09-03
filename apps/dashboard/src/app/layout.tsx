@@ -1,10 +1,27 @@
 import type { Metadata } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/Sidebar";
+import { AppShell } from "@/components/AppShell";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: "Agent Reliability Lab — Production Readiness Dashboard",
-  description: "Enterprise reliability evaluation, Wilson score statistics, and fault injection verification for AI agents",
+  title: "Agent Reliability Lab — Break your AI agent before production does",
+  description:
+    "Deterministic fault injection, stateful distributed-systems invariants, reproducible failure replay, and fail-closed CI gates for autonomous AI agents.",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({
@@ -13,12 +30,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-slate-950 text-slate-100 min-h-screen flex antialiased">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto min-h-screen bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))]">
-          {children}
-        </main>
+    <html lang="en" className={`dark ${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="bg-[#030710] text-slate-100 min-h-screen antialiased font-sans">
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

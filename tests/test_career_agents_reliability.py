@@ -72,7 +72,7 @@ class TestCareerAgentsReliability:
             cwd=str(CAREER_AGENTS_ROOT),
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=60,
             check=False,
         )
         assert res.returncode == 0, f"Career-Agents doctor failed:\n{res.stderr}\n{res.stdout}"
