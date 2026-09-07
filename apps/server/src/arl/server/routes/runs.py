@@ -4,11 +4,15 @@ Evaluation runs and trials execution management router.
 
 from __future__ import annotations
 
+import asyncio
+import json
 import uuid
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -416,4 +420,99 @@ async def get_trial_detail(
         ],
         created_at=t.created_at,
         completed_at=t.completed_at,
+    )
+
+
+@router.get("/api/v1/runs/{run_id}/stream")
+async def stream_run_events(
+    run_id: str,
+    session: AsyncSession = Depends(get_db_session),
+) -> StreamingResponse:
+    """Stream live evaluation run progress and trial verdicts via Server-Sent Events (SSE)."""
+    # 1. Check DB first
+    run_stmt = select(EvaluationRunModel).where(EvaluationRunModel.id == run_id)
+    res = await session.execute(run_stmt)
+    db_run = res.scalar_one_or_none()
+
+    # 2. Check disk if not found in DB
+    disk_run = None
+    if db_run is None:
+        try:
+            from arl.evidence.disk_store import load_run_from_disk
+
+            disk_run = load_run_from_disk(run_id)
+        except Exception:
+            disk_run = None
+
+    if db_run is None and disk_run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Evaluation run '{run_id}' not found in database or disk storage",
+        )
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        if disk_run is not None:
+            # Replay disk run events
+            summary = disk_run.get("summary", {})
+            trials = disk_run.get("trials", [])
+
+            yield f"data: {json.dumps({'event': 'run_started', 'run_id': run_id, 'total_trials': len(trials), 'state': 'COMPLETED'})}\n\n"
+            for t in trials:
+                yield f"data: {json.dumps({'event': 'trial_completed', 'trial_id': t.get('trial_id'), 'scenario_id': t.get('scenario_id'), 'verdict': t.get('verdict'), 'passed': t.get('verdict') in ('PASS', 'PASSED', 'READINESS_APPROVED'), 'duration_seconds': t.get('duration_seconds', 0.0)})}\n\n"
+            yield f"data: {json.dumps({'event': 'run_completed', 'run_id': run_id, 'pass_rate': summary.get('pass_rate', 0.0), 'verdict': summary.get('verdict')})}\n\n"
+            return
+
+        if db_run is None:
+            return
+        seen_trial_ids: set[str] = set()
+        max_poll_seconds = 300
+        start_time = asyncio.get_event_loop().time()
+
+        yield f"data: {json.dumps({'event': 'run_started', 'run_id': run_id, 'total_trials': db_run.trial_count_total, 'state': db_run.state})}\n\n"
+
+        while True:
+            # Poll current state
+            curr_run_stmt = select(EvaluationRunModel).where(EvaluationRunModel.id == run_id)
+            run_res = await session.execute(curr_run_stmt)
+            curr_run = run_res.scalar_one_or_none()
+            if curr_run is None:
+                break
+
+            # Poll trials
+            trials_stmt = select(TrialModel).where(TrialModel.run_id == run_id)
+            trials_res = await session.execute(trials_stmt)
+            curr_trials = trials_res.scalars().all()
+
+            for t in curr_trials:
+                if t.id not in seen_trial_ids and t.state in (
+                    "COMPLETED",
+                    "FAILED",
+                    "TIMED_OUT",
+                    "SKIPPED",
+                ):
+                    seen_trial_ids.add(t.id)
+                    yield f"data: {json.dumps({'event': 'trial_completed', 'trial_id': t.id, 'trial_index': t.trial_index, 'state': t.state, 'passed': t.passed, 'score': t.score, 'duration_seconds': t.duration_seconds})}\n\n"
+
+            # Check termination
+            if (
+                curr_run.state in ("COMPLETED", "FAILED", "CANCELLED")
+                or len(seen_trial_ids) >= curr_run.trial_count_total
+            ):
+                yield f"data: {json.dumps({'event': 'run_completed', 'run_id': run_id, 'passed_trials': curr_run.trial_count_passed, 'failed_trials': curr_run.trial_count_failed, 'state': curr_run.state})}\n\n"
+                break
+
+            if asyncio.get_event_loop().time() - start_time > max_poll_seconds:
+                yield f"data: {json.dumps({'event': 'stream_timeout', 'run_id': run_id})}\n\n"
+                break
+
+            await asyncio.sleep(1.0)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )

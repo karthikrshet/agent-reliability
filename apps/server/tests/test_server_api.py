@@ -282,3 +282,19 @@ async def test_server_404_and_validation_error_paths(client: AsyncClient) -> Non
     assert res_ev.status_code == 404
     res_canc = await client.post("/api/v1/runs/run-missing/cancel")
     assert res_canc.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_stream_run_events_nonexistent(client: AsyncClient) -> None:
+    res = await client.get("/api/v1/runs/run-nonexistent-9999/stream")
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_stream_run_events_disk_run(client: AsyncClient) -> None:
+    res = await client.get("/api/v1/runs/run-2a432c75/stream")
+    assert res.status_code == 200
+    assert "text/event-stream" in res.headers.get("content-type", "")
+    content = res.text
+    assert "run_started" in content
+    assert "run_completed" in content

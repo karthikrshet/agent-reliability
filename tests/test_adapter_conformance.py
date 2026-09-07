@@ -109,3 +109,38 @@ async def test_openai_adapter_lifecycle_and_mock() -> None:
         OpenAIAgentAdapter(endpoint_url="http://169.254.169.254/v1")
 
     await adapter.close_session(session)
+
+
+@pytest.mark.asyncio
+async def test_langgraph_adapter_conformance() -> None:
+    """Verify LangGraphAgentAdapter conforms to AgentAdapter protocol."""
+    from arl.adapters.langgraph.adapter import LangGraphAgentAdapter
+
+    def sample_graph(state: dict, config: dict) -> dict:
+        msgs = list(state.get("messages", []))
+        msgs.append({"role": "assistant", "content": "Graph response"})
+        return {"messages": msgs}
+
+    adapter: AgentAdapter = LangGraphAgentAdapter(graph=sample_graph)
+    assert adapter.adapter_id == "langgraph-v1"
+    assert adapter.framework == "langgraph"
+    assert adapter.adapter_version == "0.1.0"
+
+    ctx = SessionContext(
+        session_id="sess-lg-01",
+        trial_id="tr-lg-01",
+        run_id="run-lg-01",
+        agent_version_id="ag-lg-v1",
+        available_tools=[{"name": "lookup_order", "description": "Lookup order", "parameters": {}}],
+        initial_messages=[{"role": "user", "content": "hello"}],
+        correlation_id="corr-lg-01",
+    )
+    session = await adapter.start_session(ctx)
+    assert session.session_id == "sess-lg-01"
+
+    inp = AgentInput(turn_index=0, user_messages=[{"role": "user", "content": "check order"}])
+    output = await adapter.send(session, inp)
+    assert output.output_type == AgentOutputType.TEXT
+    assert output.raw_text == "Graph response"
+
+    await adapter.close_session(session)

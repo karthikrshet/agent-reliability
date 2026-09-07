@@ -114,3 +114,4 @@ benchmark/reports/local/
 # ─────────────────────────────────────────────
 sbom.json
 sbom.spdx
+scratch/

@@ -1,5 +1,6 @@
 """Agent Reliability Lab — Scenario Engine package init."""
 
+from arl.scenario_engine.fuzzer import ScenarioFuzzer
 from arl.scenario_engine.loader import (
     load_scenario,
     load_scenario_from_string,
@@ -33,6 +34,7 @@ __all__ = [
     "GradingSpec",
     "ParsedScenario",
     "ScenarioEnvironmentSpec",
+    "ScenarioFuzzer",
     "load_scenario",
     "load_scenario_from_string",
     "validate_scenario_file",

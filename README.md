@@ -194,6 +194,88 @@ $$\text{hash}(event_n) = \text{SHA-256}(\text{hash}_{n-1} + \text{canonical\_pay
 
 ---
 
+### 4. `arl-adapter-langgraph`: Native LangGraph Pregel Evaluation
+
+Evaluate stateful, multi-turn LangGraph workflows directly against ARL's deterministic fault injection harness. `LangGraphAgentAdapter` interfaces seamlessly with compiled `CompiledStateGraph` architectures:
+
+```python
+from arl.adapters.langgraph import LangGraphAgentAdapter
+from langgraph.graph import MessagesState, StateGraph
+
+# 1. Define your LangGraph workflow
+builder = StateGraph(MessagesState)
+builder.add_node("agent", call_model_node)
+builder.add_node("tools", execute_tools_node)
+builder.set_entry_point("agent")
+compiled_graph = builder.compile()
+
+# 2. Wrap in ARL's standardized AgentAdapter protocol
+adapter = LangGraphAgentAdapter(compiled_graph=compiled_graph)
+
+# 3. Executes against ARL fault schedules:
+# - Full turn-by-turn state progression
+# - Tool-call interception and chaos injection
+# - Human-in-the-loop interruption & resumption
+# - In-place session checkpoint tracking
+```
+
+---
+
+### 5. `arl.scenario_engine.fuzzer`: Schema-Valid Chaos & Adversarial Fuzzing
+
+Synthesize adversarial, stress, and boundary scenario variants from canonical baselines. Every mutant is strictly validated against JSON Schema Draft 2020-12 (fail-closed):
+
+- **Adversarial Prompt Injection**: Synthesizes prompt breakout payloads (`[SYSTEM OVERRIDE]`, SQL injection fragments, RTL overrides) into user conversation turns.
+- **Boundary & Extreme Inputs**: Injects boundary numbers (`-1`, `0`, `999999999999999999`, `0.00000001`, `NaN`) to test arithmetic robustness.
+- **Budget & Resource Pressure**: Tightens turn ceilings and tool call limits to test agent conservation under budget constraints.
+- **Compound Fault Chaining**: Dynamically appends secondary network and database faults (`http_429`, `http_503`, `timeout_before_execution`) to create cascading failure scenarios.
+
+Generate mutants using the CLI:
+```bash
+agentlab fuzz scenarios/failure-recovery/04-http-500-retry.yaml --variants 4 --out-dir scratch/fuzzed --seed 42
+```
+
+---
+
+### 6. Paired Statistical Run Comparator (`agentlab compare`)
+
+Avoid misleading aggregate metric comparisons. When comparing agent revisions (prompts, models, tool schemas), ARL performs paired scenario-by-scenario analysis:
+
+- **McNemar's Chi-Square Test with Edwards' Continuity Correction**:
+  $$\chi^2 = \frac{(|b - c| - 1)^2}{b + c}, \quad p = 1 - F_{\chi^2(1)}(\chi^2)$$
+  Where $b$ represents regressions (passed in baseline A, failed in candidate B) and $c$ represents improvements (failed in A, passed in B).
+- **Exact Regression Isolation**: Identifies every specific scenario that broke in candidate B.
+- **Brier Calibration Score**: Measures probabilistic reliability calibration:
+  $$\text{BS} = \frac{1}{N} \sum_{t=1}^N (f_t - o_t)^2$$
+- **Reliability Verdicts**: `STATISTICALLY_SIGNIFICANT_REGRESSION`, `STATISTICALLY_SIGNIFICANT_IMPROVEMENT`, or `NO_STATISTICALLY_SIGNIFICANT_DIFFERENCE`.
+
+Compare two evaluation runs:
+```bash
+agentlab compare run-2a432c75 run-5c30c699 --confidence 0.95
+```
+
+---
+
+### 7. Real-Time Server-Sent Events (SSE) Streaming API
+
+Stream live trial execution and invariant verdicts directly to web dashboards, CI agents, or terminal watchers:
+
+```http
+GET /api/v1/runs/{run_id}/stream
+Accept: text/event-stream
+```
+
+```text
+data: {"event": "run_started", "run_id": "run-2a432c75", "total_trials": 3, "state": "RUNNING"}
+
+data: {"event": "trial_completed", "trial_id": "tr-01", "state": "COMPLETED", "passed": true, "score": 1.0, "duration_seconds": 1.24}
+
+data: {"event": "run_completed", "run_id": "run-2a432c75", "passed_trials": 3, "failed_trials": 0, "state": "COMPLETED"}
+```
+Supports both live active database evaluation runs and recorded historical disk runs.
+
+---
+
 ## 🎯 Tested at Scale: 167 Autonomous Agents in Career-Agents
 
 <p align="center">
@@ -253,6 +335,7 @@ pip install -e "packages/core" \
             -e "adapters/reference" \
             -e "adapters/http" \
             -e "adapters/openai-agents" \
+            -e "adapters/langgraph" \
             -e "apps/worker" \
             -e "apps/server" \
             -e "apps/cli" \
@@ -331,6 +414,8 @@ Open [http://localhost:3000](http://localhost:3000) to inspect scenarios, live e
 | `rerun` | `agentlab rerun <failure-or-run-id>` | Deterministically re-execute scenario with identical seed |
 | `report` | `agentlab report [<run-id>] [-f markdown\|json\|text]` | Output evaluation summary with Wilson confidence intervals |
 | `verify` | `agentlab verify` | Verify cryptographic SHA-256 tamper-evident ledger integrity |
+| `fuzz` | `agentlab fuzz <path> [-v <n>] [-o <dir>] [-s <seed>]` | Synthesize schema-valid boundary, stress, and adversarial mutants |
+| `compare` | `agentlab compare <run-a> <run-b> [-c <confidence>]` | Paired statistical significance comparison (McNemar test) |
 | `doctor` | `agentlab doctor [--agent-url <url>]` | Run preflight health and environment connectivity diagnostics |
 | `serve` | `agentlab serve [--port 8000]` | Launch the FastAPI operations backend server |
 

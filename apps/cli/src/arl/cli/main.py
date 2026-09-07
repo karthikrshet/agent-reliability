@@ -42,7 +42,9 @@ from arl.grading_engine.invariants import (
     InvariantSpec,
     InvariantStatus,
 )
+from arl.grading_engine.stats import compare_runs
 from arl.protocol.adapter import AgentAdapter
+from arl.scenario_engine.fuzzer import ScenarioFuzzer
 from arl.scenario_engine.loader import load_scenario
 from arl.scenario_engine.schema import ParsedScenario
 
@@ -1084,6 +1086,171 @@ def verify_command(
             )
         )
         raise typer.Exit(code=1)
+
+
+@app.command(name="fuzz")
+def fuzz_command(
+    scenario_path: Annotated[
+        Path,
+        typer.Argument(help="Path to scenario YAML file to mutate"),
+    ],
+    variants: Annotated[
+        int,
+        typer.Option(
+            "--variants",
+            "-v",
+            help="Number of fuzzed scenario variants to synthesize",
+            min=1,
+            max=50,
+        ),
+    ] = 3,
+    out_dir: Annotated[
+        Path,
+        typer.Option("--out-dir", "-o", help="Directory where mutated scenarios will be saved"),
+    ] = Path("scratch/fuzzed"),
+    seed: Annotated[
+        int,
+        typer.Option(
+            "--seed", "-s", help="Random number generator seed for deterministic mutations"
+        ),
+    ] = 42,
+) -> None:
+    """Synthesize schema-valid boundary, stress, and adversarial scenario mutants."""
+    if not scenario_path.exists():
+        console.print(f"[bold red]Scenario file not found:[/bold red] {scenario_path}")
+        raise typer.Exit(code=1)
+
+    try:
+        scenario, _, _ = load_scenario(scenario_path)
+    except Exception as exc:
+        console.print(f"[bold red]Failed to load scenario:[/bold red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    fuzzer = ScenarioFuzzer(seed=seed)
+    mutants = fuzzer.fuzz(scenario, count=variants)
+    saved_files = fuzzer.save_mutants(mutants, out_dir)
+
+    console.print(
+        Panel(
+            f"[bold]Baseline Scenario:[/bold] {scenario.id} ({scenario.title})\n"
+            f"[bold]Mutants Synthesized:[/bold] {len(mutants)}\n"
+            f"[bold]RNG Seed:[/bold] {seed}\n"
+            f"[bold]Output Directory:[/bold] [cyan]{out_dir}[/cyan]",
+            title="[bold green]ARL Scenario Fuzzer[/bold green]",
+            border_style="green",
+        )
+    )
+
+    table = Table(title="Generated Schema-Valid Mutants", box=box.ROUNDED)
+    table.add_column("Mutant ID", style="bold cyan")
+    table.add_column("Title", style="white")
+    table.add_column("File Path", style="dim")
+
+    for m, p in zip(mutants, saved_files, strict=False):
+        table.add_row(m["id"], m["title"], str(p))
+
+    console.print(table)
+
+
+@app.command(name="compare")
+def compare_command(
+    run_a_id: Annotated[
+        str,
+        typer.Argument(help="Baseline Run ID (or 'latest~1')"),
+    ],
+    run_b_id: Annotated[
+        str,
+        typer.Argument(help="Candidate Run ID (or 'latest')"),
+    ],
+    confidence: Annotated[
+        float,
+        typer.Option(
+            "--confidence",
+            "-c",
+            help="Confidence level for statistical significance",
+            min=0.5,
+            max=0.999,
+        ),
+    ] = 0.95,
+) -> None:
+    """Perform paired statistical significance comparison between two evaluation runs."""
+    all_runs = list_runs_on_disk()
+
+    def _resolve_id(val: str) -> str:
+        if val in ("latest", "head"):
+            if not all_runs:
+                console.print("[yellow]No runs found on disk.[/yellow]")
+                raise typer.Exit(code=1)
+            return all_runs[0]
+        if val in ("latest~1", "previous"):
+            if len(all_runs) < 2:
+                console.print("[yellow]Fewer than 2 runs found on disk for comparison.[/yellow]")
+                raise typer.Exit(code=1)
+            return all_runs[1]
+        return val
+
+    resolved_a = _resolve_id(run_a_id)
+    resolved_b = _resolve_id(run_b_id)
+
+    try:
+        run_a = load_run_from_disk(resolved_a)
+    except Exception as exc:
+        console.print(f"[bold red]Failed to load Run A ({resolved_a}):[/bold red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    try:
+        run_b = load_run_from_disk(resolved_b)
+    except Exception as exc:
+        console.print(f"[bold red]Failed to load Run B ({resolved_b}):[/bold red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    result = compare_runs(run_a, run_b, confidence=confidence)
+
+    verdict_colors = {
+        "STATISTICALLY_SIGNIFICANT_IMPROVEMENT": "bold green",
+        "STATISTICALLY_SIGNIFICANT_REGRESSION": "bold red",
+        "NO_STATISTICALLY_SIGNIFICANT_DIFFERENCE": "bold yellow",
+    }
+    verdict_style = verdict_colors.get(result["verdict"], "bold white")
+
+    delta_pct = f"{result['delta_pass_rate']:+.1%}"
+    delta_color = (
+        "green"
+        if result["delta_pass_rate"] > 0
+        else ("red" if result["delta_pass_rate"] < 0 else "white")
+    )
+
+    console.print(
+        Panel(
+            f"[bold]Run A (Baseline):[/bold] {resolved_a} ([cyan]{result['run_a_pass_rate']:.1%}[/cyan] pass rate)\n"
+            f"[bold]Run B (Candidate):[/bold] {resolved_b} ([cyan]{result['run_b_pass_rate']:.1%}[/cyan] pass rate)\n"
+            f"[bold]Delta:[/bold] [{delta_color}]{delta_pct}[/{delta_color}]\n"
+            f"[bold]Paired Common Scenarios:[/bold] {result['common_scenarios_count']}\n"
+            f"[bold]McNemar Chi-Square (chi2):[/bold] {result['mcnemar_chi2']:.3f} (p-value: {result['mcnemar_p_value']:.4f})\n"
+            f"[bold]Verdict:[/bold] [{verdict_style}]{result['verdict']}[/{verdict_style}]",
+            title="[bold cyan]ARL Paired Statistical Run Comparison[/bold cyan]",
+            border_style="cyan",
+        )
+    )
+
+    if result["regressions"]:
+        reg_table = Table(
+            title="[bold red]Regressions (Passed in A, Failed in B)[/bold red]", box=box.ROUNDED
+        )
+        reg_table.add_column("Scenario ID", style="red")
+        for reg in result["regressions"]:
+            reg_table.add_row(reg)
+        console.print(reg_table)
+
+    if result["improvements"]:
+        imp_table = Table(
+            title="[bold green]Improvements (Failed in A, Passed in B)[/bold green]",
+            box=box.ROUNDED,
+        )
+        imp_table.add_column("Scenario ID", style="green")
+        for imp in result["improvements"]:
+            imp_table.add_row(imp)
+        console.print(imp_table)
 
 
 if __name__ == "__main__":

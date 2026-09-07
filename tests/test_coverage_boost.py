@@ -15,8 +15,10 @@ from arl.core.errors import (
     AgentExecutionError,
     ARLError,
     BudgetExceededError,
+    ConcurrentModificationError,
     ConfigurationError,
     DuplicateEffectError,
+    EvidenceError,
     FaultInjectionError,
     ForbiddenEffectDetectedError,
     GradingError,
@@ -72,6 +74,12 @@ def test_core_errors_serialization() -> None:
 
     e9 = DuplicateEffectError(tool_name="order.refund", idempotency_key="k1", call_count=2)
     assert e9.context["call_count"] == 2
+
+    e_ev = EvidenceError("trace.json", "run-99")
+    assert "Missing required evidence" in str(e_ev)
+
+    e_occ = ConcurrentModificationError("projects", "p-1", 2)
+    assert "Concurrent modification" in str(e_occ)
 
     e10 = ForbiddenEffectDetectedError(
         effect_path="customer.delete", actual_value=True, trial_id="tr-01"
@@ -223,3 +231,43 @@ async def test_server_runs_and_trials_extended_endpoints() -> None:
         t_res = await client.get(f"/api/v1/trials/{tid}")
         assert t_res.status_code == 200
         assert t_res.json()["id"] == tid
+
+        # Mark trial completed in database to exercise trial event streaming
+        from sqlalchemy import update
+
+        from arl.core.storage.models import TrialModel
+
+        async with engine.begin() as conn:
+            await conn.execute(
+                update(TrialModel)
+                .where(TrialModel.id == tid)
+                .values(state="COMPLETED", passed=True, score=1.0, duration_seconds=0.5)
+            )
+
+        # Cancel run and stream active DB run events
+        canc_res = await client.post(f"/api/v1/runs/{rid}/cancel")
+        assert canc_res.status_code == 200
+
+        # Cancel 404 branch
+        canc_404 = await client.post("/api/v1/runs/nonexistent-rid/cancel")
+        assert canc_404.status_code == 404
+
+        stream_res = await client.get(f"/api/v1/runs/{rid}/stream")
+        assert stream_res.status_code == 200
+        assert "text/event-stream" in stream_res.headers.get("content-type", "")
+        assert "run_started" in stream_res.text
+        assert "trial_completed" in stream_res.text
+        assert "run_completed" in stream_res.text
+
+
+@pytest.mark.unit
+def test_project_domain_model_coverage() -> None:
+    from arl.core.domain.project import Project
+
+    p = Project(id="proj_01", name="Alpha", owner_id="user_1")
+    p2 = p.with_update(name="Beta")
+    assert p2.name == "Beta"
+    assert p2.version == 1
+
+    with pytest.raises(ValueError, match="Project name must not be blank"):
+        Project(id="proj_02", name="   ", owner_id="user_1")

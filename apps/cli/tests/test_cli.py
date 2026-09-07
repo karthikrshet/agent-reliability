@@ -105,3 +105,47 @@ def test_cli_run_missing_scenario() -> None:
         app, ["run", "--scenario", "nonexistent_scenario.yaml", "--reference-agent"]
     )
     assert res.exit_code != 0
+
+
+@pytest.mark.unit
+def test_cli_fuzz(tmp_path: Path) -> None:
+    yaml_path = Path("scenarios/failure-recovery/04-http-500-retry.yaml")
+    if yaml_path.exists():
+        res = runner.invoke(
+            app,
+            [
+                "fuzz",
+                str(yaml_path),
+                "--variants",
+                "2",
+                "--out-dir",
+                str(tmp_path),
+                "--seed",
+                "42",
+            ],
+        )
+        assert res.exit_code == 0
+        assert "ARL Scenario Fuzzer" in res.output
+        assert "Generated Schema-Valid Mutants" in res.output
+        assert len(list(tmp_path.glob("*.yaml"))) == 2
+
+
+@pytest.mark.unit
+def test_cli_fuzz_missing_file() -> None:
+    res = runner.invoke(app, ["fuzz", "nonexistent_scenario.yaml"])
+    assert res.exit_code != 0
+    assert "not found" in res.output
+
+
+@pytest.mark.unit
+def test_cli_compare() -> None:
+    res = runner.invoke(app, ["compare", "run-2a432c75", "run-5c30c699"])
+    assert res.exit_code == 0
+    assert "ARL Paired Statistical Run Comparison" in res.output
+    assert "Verdict" in res.output
+
+
+@pytest.mark.unit
+def test_cli_compare_missing_run() -> None:
+    res = runner.invoke(app, ["compare", "run-nonexistent-1234", "run-nonexistent-5678"])
+    assert res.exit_code != 0

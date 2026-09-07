@@ -1,0 +1,18 @@
+[project]
+name = "arl-adapter-langgraph"
+version = "0.1.0"
+description = "LangGraph agent adapter for Agent Reliability Lab"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "arl-protocol",
+    "arl-core",
+    "pydantic>=2.9.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/arl"]
