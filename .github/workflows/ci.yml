@@ -63,6 +63,7 @@ jobs:
                       -e "adapters/reference" \
                       -e "adapters/http" \
                       -e "adapters/openai-agents" \
+                      -e "adapters/langgraph" \
                       -e "apps/worker" \
                       -e "apps/server" \
                       -e "apps/cli" \
@@ -80,7 +81,7 @@ jobs:
       - name: Run Full Pytest Suite with Coverage Gate (>=85%)
         env:
           ARL_TEST_POSTGRES_URL: postgresql+asyncpg://arl_user:arl_password@localhost:5432/arl_test
-          PYTHONPATH: "packages/core/src:packages/protocol/src:packages/scenario-engine/src:packages/fault-engine/src:packages/execution-engine/src:packages/grading-engine/src:packages/evidence/src:environments/customer-support/src:adapters/reference/src:adapters/http/src:adapters/openai-agents/src:apps/worker/src:apps/server/src:apps/cli/src:apps/mcp/src:."
+          PYTHONPATH: "packages/core/src:packages/protocol/src:packages/scenario-engine/src:packages/fault-engine/src:packages/execution-engine/src:packages/grading-engine/src:packages/evidence/src:environments/customer-support/src:adapters/reference/src:adapters/http/src:adapters/openai-agents/src:adapters/langgraph/src:apps/worker/src:apps/server/src:apps/cli/src:apps/mcp/src:."
         run: |
           pytest -v --cov=packages --cov=apps --cov=adapters --cov=environments --cov-report=xml --cov-report=term-missing --cov-fail-under=85
 
