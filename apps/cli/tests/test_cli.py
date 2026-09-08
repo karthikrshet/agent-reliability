@@ -137,12 +137,87 @@ def test_cli_fuzz_missing_file() -> None:
     assert "not found" in res.output
 
 
+def _ensure_compare_runs() -> None:
+    from arl.evidence.disk_store import persist_run_to_disk
+
+    persist_run_to_disk(
+        run_id="run-2a432c75",
+        manifest={
+            "run_id": "run-2a432c75",
+            "scenario_count": 1,
+            "verdict": "INSUFFICIENT_EVIDENCE",
+        },
+        events=[],
+        faults=[],
+        invariants=[],
+        summary={
+            "run_id": "run-2a432c75",
+            "completed_trials": 1,
+            "passed_trials": 1,
+            "failed_trials": 0,
+            "pass_rate": 1.0,
+            "verdict": "INSUFFICIENT_EVIDENCE",
+        },
+        failures=[],
+        trials=[
+            {
+                "trial_id": "trial-2a43-01",
+                "scenario_id": "tool-correctness-01",
+                "verdict": "PASS",
+                "duration_seconds": 0.42,
+            }
+        ],
+    )
+    persist_run_to_disk(
+        run_id="run-5c30c699",
+        manifest={
+            "run_id": "run-5c30c699",
+            "scenario_count": 1,
+            "verdict": "INSUFFICIENT_EVIDENCE",
+        },
+        events=[],
+        faults=[],
+        invariants=[],
+        summary={
+            "run_id": "run-5c30c699",
+            "completed_trials": 1,
+            "passed_trials": 0,
+            "failed_trials": 1,
+            "pass_rate": 0.0,
+            "verdict": "INSUFFICIENT_EVIDENCE",
+        },
+        failures=[],
+        trials=[
+            {
+                "trial_id": "trial-5c30-01",
+                "scenario_id": "tool-correctness-01",
+                "verdict": "FAIL",
+                "duration_seconds": 0.38,
+            }
+        ],
+    )
+
+
 @pytest.mark.unit
 def test_cli_compare() -> None:
+    _ensure_compare_runs()
     res = runner.invoke(app, ["compare", "run-2a432c75", "run-5c30c699"])
     assert res.exit_code == 0
     assert "ARL Paired Statistical Run Comparison" in res.output
     assert "Verdict" in res.output
+
+
+@pytest.mark.unit
+def test_cli_compare_improvements_and_aliases() -> None:
+    _ensure_compare_runs()
+    # Comparing run-5c30c699 (0% pass) to run-2a432c75 (100% pass) exercises improvements branch
+    res = runner.invoke(app, ["compare", "run-5c30c699", "run-2a432c75"])
+    assert res.exit_code == 0
+    assert "ARL Paired Statistical Run Comparison" in res.output
+
+    # Exercise alias resolution with latest and latest~1
+    res_alias = runner.invoke(app, ["compare", "latest~1", "latest"])
+    assert res_alias.exit_code == 0
 
 
 @pytest.mark.unit

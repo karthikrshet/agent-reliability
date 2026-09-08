@@ -292,9 +292,50 @@ async def test_stream_run_events_nonexistent(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_stream_run_events_disk_run(client: AsyncClient) -> None:
+    from arl.evidence.disk_store import persist_run_to_disk
+
+    persist_run_to_disk(
+        run_id="run-2a432c75",
+        manifest={
+            "run_id": "run-2a432c75",
+            "scenario_count": 1,
+            "total_trials": 1,
+            "reference_only": True,
+            "seed": 42,
+            "threshold": 0.8,
+            "verdict": "INSUFFICIENT_EVIDENCE",
+            "evidence_root_hash": "ad11b501abd217fd024f13dbf6eaa547d635a014a36ba0d4a1a51e2bf72b5f47",
+        },
+        events=[
+            {"event_id": "ev-1", "type": "run_started", "run_id": "run-2a432c75"},
+            {"event_id": "ev-2", "type": "run_completed", "run_id": "run-2a432c75"},
+        ],
+        faults=[],
+        invariants=[],
+        summary={
+            "run_id": "run-2a432c75",
+            "completed_trials": 1,
+            "passed_trials": 1,
+            "failed_trials": 0,
+            "pass_rate": 1.0,
+            "critical_failures": 0,
+            "verdict": "INSUFFICIENT_EVIDENCE",
+        },
+        failures=[],
+        trials=[
+            {
+                "trial_id": "trial-2a43-01",
+                "scenario_id": "tool-correctness-01",
+                "verdict": "PASS",
+                "duration_seconds": 0.42,
+            }
+        ],
+    )
+
     res = await client.get("/api/v1/runs/run-2a432c75/stream")
     assert res.status_code == 200
     assert "text/event-stream" in res.headers.get("content-type", "")
     content = res.text
     assert "run_started" in content
+    assert "trial_completed" in content
     assert "run_completed" in content

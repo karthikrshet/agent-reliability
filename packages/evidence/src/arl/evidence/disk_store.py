@@ -32,6 +32,7 @@ def persist_run_to_disk(
     invariants: list[InvariantResult],
     summary: dict[str, Any],
     failures: list[FailureRecord] | None = None,
+    trials: list[dict[str, Any]] | None = None,
     base_dir: Path | str = ".arl",
 ) -> Path:
     """Persist structured run artifacts to .arl/runs/<run-id>/."""
@@ -63,6 +64,11 @@ def persist_run_to_disk(
     if failures:
         with (root / "failures.json").open("w", encoding="utf-8") as f:
             json.dump([fail.model_dump() for fail in failures], f, indent=2, default=str)
+
+    # 7. trials.json (if any)
+    if trials:
+        with (root / "trials.json").open("w", encoding="utf-8") as f:
+            json.dump(trials, f, indent=2, default=str)
 
     return root
 
@@ -112,6 +118,12 @@ def load_run_from_disk(
         with (root / "failures.json").open("r", encoding="utf-8") as f:
             failures = json.load(f)
 
+    # Load trials
+    trials: list[dict[str, Any]] = []
+    if (root / "trials.json").exists():
+        with (root / "trials.json").open("r", encoding="utf-8") as f:
+            trials = json.load(f)
+
     return {
         "run_id": run_id,
         "manifest": manifest,
@@ -120,6 +132,7 @@ def load_run_from_disk(
         "invariants": invariants,
         "summary": summary,
         "failures": failures,
+        "trials": trials,
         "directory": str(root),
     }
 

@@ -259,6 +259,35 @@ async def test_server_runs_and_trials_extended_endpoints() -> None:
         assert "trial_completed" in stream_res.text
         assert "run_completed" in stream_res.text
 
+        # Fetch generated report and cryptographic evidence ledger
+        rep_res = await client.get(f"/api/v1/runs/{rid}/report")
+        assert rep_res.status_code == 200
+        assert "run_id" in rep_res.json()
+
+        ev_res = await client.get(f"/api/v1/runs/{rid}/evidence")
+        assert ev_res.status_code == 200
+        assert "blocks" in ev_res.json()
+        assert ev_res.json()["integrity_verified"] is True
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_readyz_database_error() -> None:
+    """Exercise 503 HTTP exception branch when DB connectivity probe fails."""
+    from unittest.mock import AsyncMock
+
+    from fastapi import HTTPException
+
+    from arl.server.routes.health import readyz
+
+    mock_session = AsyncMock()
+    mock_session.execute.side_effect = RuntimeError("Simulated connection timeout")
+
+    with pytest.raises(HTTPException) as exc_info:
+        await readyz(session=mock_session)
+    assert exc_info.value.status_code == 503
+    assert "Database unreachable" in exc_info.value.detail
+
 
 @pytest.mark.unit
 def test_project_domain_model_coverage() -> None:

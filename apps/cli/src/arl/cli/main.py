@@ -207,6 +207,7 @@ async def _run_evaluation_async(
     trial_scores: dict[str, float] = {}
     trial_verdicts: dict[str, TrialVerdict] = {}
     trial_categories: dict[str, str] = {}
+    trial_scenario_ids: dict[str, str] = {}
     all_grader_results = []
     all_events: list[dict[str, Any]] = []
     all_faults: list[FaultResult] = []
@@ -350,6 +351,7 @@ async def _run_evaluation_async(
             trial_scores[trial_id] = score
             trial_verdicts[trial_id] = verdict
             trial_categories[trial_id] = scenario.category
+            trial_scenario_ids[trial_id] = scenario.id
 
             # If trial failed, create FailureRecord
             if verdict in (TrialVerdict.CRITICAL_FAIL, TrialVerdict.FAIL):
@@ -439,6 +441,16 @@ async def _run_evaluation_async(
         "critical_failures": res.critical_failures,
         "verdict": res.readiness_verdict.value,
     }
+    trials_payload = [
+        {
+            "trial_id": t.id,
+            "scenario_id": trial_scenario_ids.get(t.id, "unknown"),
+            "verdict": t.verdict.value if t.verdict is not None else "UNKNOWN",
+            "score": getattr(t, "score", None),
+            "duration_seconds": (getattr(t, "duration_ms", 0) or 0) / 1000.0,
+        }
+        for t in domain_trials
+    ]
     persist_run_to_disk(
         run_id=run_id,
         manifest=manifest,
@@ -447,6 +459,7 @@ async def _run_evaluation_async(
         invariants=all_invariants,
         summary=summary,
         failures=all_failures,
+        trials=trials_payload,
     )
 
     # Print Final Audit Summary
@@ -1172,9 +1185,17 @@ def compare_command(
             max=0.999,
         ),
     ] = 0.95,
+    evidence_dir: Annotated[
+        Path,
+        typer.Option(
+            "--evidence-dir",
+            "-d",
+            help="Path to .arl evidence storage directory",
+        ),
+    ] = Path(".arl"),
 ) -> None:
     """Perform paired statistical significance comparison between two evaluation runs."""
-    all_runs = list_runs_on_disk()
+    all_runs = list_runs_on_disk(base_dir=evidence_dir)
 
     def _resolve_id(val: str) -> str:
         if val in ("latest", "head"):
@@ -1193,13 +1214,13 @@ def compare_command(
     resolved_b = _resolve_id(run_b_id)
 
     try:
-        run_a = load_run_from_disk(resolved_a)
+        run_a = load_run_from_disk(resolved_a, base_dir=evidence_dir)
     except Exception as exc:
         console.print(f"[bold red]Failed to load Run A ({resolved_a}):[/bold red] {exc}")
         raise typer.Exit(code=1) from exc
 
     try:
-        run_b = load_run_from_disk(resolved_b)
+        run_b = load_run_from_disk(resolved_b, base_dir=evidence_dir)
     except Exception as exc:
         console.print(f"[bold red]Failed to load Run B ({resolved_b}):[/bold red] {exc}")
         raise typer.Exit(code=1) from exc
