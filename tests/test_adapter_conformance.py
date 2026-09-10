@@ -7,6 +7,8 @@ lifecycle protocol, SSRF defenses, tool record structures, and error handling.
 
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 import pytest
 
@@ -142,5 +144,38 @@ async def test_langgraph_adapter_conformance() -> None:
     output = await adapter.send(session, inp)
     assert output.output_type == AgentOutputType.TEXT
     assert output.raw_text == "Graph response"
+
+    await adapter.close_session(session)
+
+
+@pytest.mark.asyncio
+async def test_crewai_adapter_conformance() -> None:
+    """Verify CrewAIAgentAdapter conforms to AgentAdapter protocol."""
+    from arl.adapters.crewai.adapter import CrewAIAgentAdapter
+
+    def sample_crew(payload: dict[str, Any]) -> str:
+        return f"Crew response to: {payload.get('input', '')}"
+
+    adapter: AgentAdapter = CrewAIAgentAdapter(crew=sample_crew)
+    assert adapter.adapter_id == "crewai-v1"
+    assert adapter.framework == "crewai"
+    assert adapter.adapter_version == "0.1.0"
+
+    ctx = SessionContext(
+        session_id="sess-crew-01",
+        trial_id="tr-crew-01",
+        run_id="run-crew-01",
+        agent_version_id="ag-crew-v1",
+        available_tools=[{"name": "lookup_order", "description": "Lookup order", "parameters": {}}],
+        initial_messages=[{"role": "user", "content": "hello"}],
+        correlation_id="corr-crew-01",
+    )
+    session = await adapter.start_session(ctx)
+    assert session.session_id == "sess-crew-01"
+
+    inp = AgentInput(turn_index=0, user_messages=[{"role": "user", "content": "check order"}])
+    output = await adapter.send(session, inp)
+    assert output.output_type == AgentOutputType.TEXT
+    assert output.raw_text == "Crew response to: check order"
 
     await adapter.close_session(session)
