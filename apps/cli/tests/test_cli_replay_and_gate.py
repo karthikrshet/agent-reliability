@@ -92,6 +92,41 @@ def test_cli_test_gate_passes_on_zero_critical_failures() -> None:
         assert "CI RELIABILITY GATE PASSED" in res.output
 
 
+def test_cli_test_gate_emits_github_actions_outputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    yaml_path = Path("scenarios/tool-correctness/01-order-lookup-correct-arguments.yaml")
+    if yaml_path.exists():
+        summary_file = tmp_path / "step_summary.md"
+        output_file = tmp_path / "action_output.txt"
+        monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary_file))
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+
+        res = runner.invoke(
+            app,
+            [
+                "test",
+                str(yaml_path),
+                "--gate",
+                "--reference-agent",
+                "--trials",
+                "1",
+                "--seed",
+                "42",
+            ],
+        )
+        assert res.exit_code == 0
+        assert summary_file.exists()
+        summary_content = summary_file.read_text(encoding="utf-8")
+        assert "CI Quality Gate" in summary_content
+        assert "PASSED" in summary_content
+
+        assert output_file.exists()
+        output_content = output_file.read_text(encoding="utf-8")
+        assert "gate_passed=true" in output_content
+        assert "pass_rate=" in output_content
+
+
 def test_cli_report_command_formats() -> None:
     yaml_path = Path("scenarios/tool-correctness/01-order-lookup-correct-arguments.yaml")
     if yaml_path.exists():

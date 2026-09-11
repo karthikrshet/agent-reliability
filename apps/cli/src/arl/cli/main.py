@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import uuid
 from pathlib import Path
 from typing import Annotated, Any
@@ -982,6 +983,37 @@ def execute_test_command(
         console.print()
         console.print(table)
         console.print()
+
+        # Emit GitHub Actions Step Summary & Output parameters if running in CI workflow
+        gh_step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        if gh_step_summary:
+            try:
+                gate_status_str = "FAILED" if is_gate_failed else "PASSED"
+                summary_lines = [
+                    "## 🛡️ Agent Reliability Lab — CI Quality Gate",
+                    "",
+                    f"- **Gate Verdict**: **{gate_status_str}**",
+                    f"- **Pass Rate**: `{res.pass_rate:.1%}` (Threshold: `{threshold:.0%}`)",
+                    f"- **Critical Invariant Violations**: `{critical_violations}`",
+                    f"- **Completed Trials**: `{res.completed_trials}`",
+                    f"- **Run ID**: `{run_id}`",
+                    "",
+                ]
+                with open(gh_step_summary, "a", encoding="utf-8") as f:
+                    f.write("\n".join(summary_lines) + "\n")
+            except Exception:
+                pass
+
+        gh_output = os.environ.get("GITHUB_OUTPUT")
+        if gh_output:
+            try:
+                with open(gh_output, "a", encoding="utf-8") as f:
+                    f.write(f"gate_passed={'false' if is_gate_failed else 'true'}\n")
+                    f.write(f"run_id={run_id}\n")
+                    f.write(f"pass_rate={res.pass_rate:.4f}\n")
+                    f.write(f"critical_violations={critical_violations}\n")
+            except Exception:
+                pass
 
         if is_gate_failed:
             console.print(

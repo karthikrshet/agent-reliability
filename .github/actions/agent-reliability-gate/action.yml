@@ -1,0 +1,46 @@
+name: "Agent Reliability Gate"
+description: "Executes Agent Reliability Lab scenarios and enforces zero-critical-regression CI quality gate"
+author: "Google DeepMind pair programming / Agent Reliability Lab"
+inputs:
+  scenario-path:
+    description: "Path to scenario YAML file or folder"
+    required: false
+    default: "scenarios/tool-correctness"
+  threshold:
+    description: "Required pass rate threshold (0.0 - 1.0)"
+    required: false
+    default: "0.80"
+  trials:
+    description: "Number of trials per scenario"
+    required: false
+    default: "1"
+  agent-url:
+    description: "HTTP endpoint of agent to evaluate"
+    required: false
+  reference-agent:
+    description: "Use local reference agent"
+    required: false
+    default: "true"
+outputs:
+  gate_passed:
+    description: "Whether the reliability gate passed (true/false)"
+    value: ${{ steps.run-gate.outputs.gate_passed }}
+  pass_rate:
+    description: "Overall evaluated pass rate"
+    value: ${{ steps.run-gate.outputs.pass_rate }}
+  run_id:
+    description: "Execution run ID"
+    value: ${{ steps.run-gate.outputs.run_id }}
+runs:
+  using: "composite"
+  steps:
+    - id: run-gate
+      shell: bash
+      run: |
+        ARGS="test ${{ inputs.scenario-path }} --gate --threshold ${{ inputs.threshold }} --trials ${{ inputs.trials }}"
+        if [ -n "${{ inputs.agent-url }}" ]; then
+          ARGS="$ARGS --agent-url ${{ inputs.agent-url }}"
+        elif [ "${{ inputs.reference-agent }}" = "true" ]; then
+          ARGS="$ARGS --reference-agent"
+        fi
+        agentlab $ARGS
