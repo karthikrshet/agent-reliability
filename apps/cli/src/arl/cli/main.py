@@ -1047,7 +1047,11 @@ def report_command(
     ] = "latest",
     format: Annotated[
         str,
-        typer.Option("--format", "-f", help="Output format: markdown, json, or text"),
+        typer.Option(
+            "--format",
+            "-f",
+            help="Output format: text, markdown, json, sarif, compliance, iso42001, soc2",
+        ),
     ] = "text",
 ) -> None:
     """Generate and display evaluation reports for recorded runs."""
@@ -1064,26 +1068,81 @@ def report_command(
         console.print(f"[bold red]Error loading run:[/bold red] {exc}")
         raise typer.Exit(code=1) from exc
 
+    manifest = data.get("manifest", {})
+    summary = data.get("summary", {})
+    failures = data.get("failures", [])
+    invariants = data.get("invariants", [])
+
     if format == "json":
         console.print_json(json.dumps(data, default=str))
         return
 
-    manifest = data.get("manifest", {})
-    summary = data.get("summary", {})
-    failures = data.get("failures", [])
+    raw_verdict = summary.get("verdict", "INSUFFICIENT_EVIDENCE")
+    try:
+        verdict = ReadinessVerdict(raw_verdict)
+    except ValueError:
+        verdict = ReadinessVerdict.INSUFFICIENT_EVIDENCE
+
+    crit_findings: list[dict[str, Any]] = []
+    if failures:
+        crit_findings.extend(failures)
+    else:
+        crit_findings.extend(
+            {
+                "rule_id": inv.get("invariant_name") or inv.get("name") or "invariant_violation",
+                "category": inv.get("category", "safety"),
+                "severity": inv.get("severity", "critical"),
+                "detail": inv.get("failure_reason") or inv.get("message") or "Invariant violation",
+                "trial_id": inv.get("trial_id", "trial"),
+            }
+            for inv in invariants
+            if not inv.get("passed", True)
+        )
+
+    run_res = RunAggregationResult(
+        run_id=run_id,
+        total_trials=int(summary.get("total_trials", summary.get("completed_trials", 0))),
+        completed_trials=int(summary.get("completed_trials", 0)),
+        passed_trials=int(summary.get("passed_trials", 0)),
+        failed_trials=int(summary.get("failed_trials", 0)),
+        critical_failures=int(summary.get("critical_failures", len(crit_findings))),
+        readiness_verdict=verdict,
+        readiness_score=float(summary.get("readiness_score", summary.get("pass_rate", 0.0))),
+        pass_rate=float(summary.get("pass_rate", 0.0)),
+        pass_rate_ci_lower=float(summary.get("pass_rate_ci_lower", 0.0)),
+        pass_rate_ci_upper=float(summary.get("pass_rate_ci_upper", 0.0)),
+        pass_at_1=float(summary.get("pass_at_1", summary.get("pass_rate", 0.0))),
+        pass_at_3=summary.get("pass_at_3"),
+        pass_at_5=summary.get("pass_at_5"),
+        mean_duration_seconds=float(summary.get("mean_duration_seconds", 0.0)),
+        mean_tokens=float(summary.get("mean_tokens", 0.0)),
+        total_cost_usd=float(summary.get("total_cost_usd", 0.0)),
+        category_summaries={},
+        critical_findings=crit_findings,
+        verdict_reason=str(summary.get("verdict_reason", "Audit report for recorded run")),
+        is_reference_only=bool(manifest.get("is_reference_only", False)),
+    )
+
+    collector = EvidenceCollector()
+    if manifest.get("evidence_root_hash"):
+        collector.current_hash = manifest["evidence_root_hash"]
+
+    generator = ReportGenerator(run_result=run_res, evidence_collector=collector)
+
+    if format == "sarif":
+        console.print_json(json.dumps(generator.generate_sarif_report()))
+        return
+
+    if format in ("compliance", "iso42001"):
+        console.print_json(json.dumps(generator.generate_compliance_report(standard="ISO42001")))
+        return
+
+    if format == "soc2":
+        console.print_json(json.dumps(generator.generate_compliance_report(standard="SOC2")))
+        return
 
     if format == "markdown":
-        md = f"""# ARL Evaluation Report — `{run_id}`
-
-- **Scenario Count:** {manifest.get("scenario_count", "N/A")}
-- **Total Trials:** {summary.get("completed_trials", 0)}
-- **Pass Rate:** {summary.get("pass_rate", 0.0):.1%}
-- **Wilson 95% CI:** [{summary.get("pass_rate_ci_lower", 0.0):.1%}, {summary.get("pass_rate_ci_upper", 0.0):.1%}]
-- **Readiness Verdict:** `{summary.get("verdict", "N/A")}`
-- **Evidence Chain Hash:** `{manifest.get("evidence_root_hash", "N/A")}`
-- **Critical Failures:** {summary.get("critical_failures", 0)}
-"""
-        console.print(md)
+        console.print(generator.generate_markdown_report())
         return
 
     console.print(

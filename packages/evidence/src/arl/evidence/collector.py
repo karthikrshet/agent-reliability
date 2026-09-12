@@ -46,6 +46,10 @@ class EvidenceCollector:
         """The latest SHA-256 hash of the evidence ledger chain."""
         return self._current_chain_hash
 
+    @current_hash.setter
+    def current_hash(self, value: str) -> None:
+        self._current_chain_hash = value
+
     def collect_from_trial_result(
         self,
         trial_id: str,

@@ -206,3 +206,117 @@ class ReportGenerator:
             )
 
         return "\n".join(lines)
+
+    def generate_sarif_report(self) -> dict[str, Any]:
+        """Generate OASIS SARIF v2.1.0 report for GitHub Advanced Security ingestion."""
+        rules: list[dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
+        seen_rule_ids: set[str] = set()
+
+        for finding in self.res.critical_findings:
+            raw_rule = (
+                finding.get("rule_id")
+                or finding.get("invariant_name")
+                or finding.get("category")
+                or "invariant_violation"
+            )
+            rule_id = str(raw_rule)
+            if rule_id not in seen_rule_ids:
+                seen_rule_ids.add(rule_id)
+                rules.append(
+                    {
+                        "id": rule_id,
+                        "name": rule_id.replace("_", " ").title(),
+                        "shortDescription": {"text": f"ARL Invariant: {rule_id}"},
+                        "fullDescription": {
+                            "text": f"Agent Reliability Lab invariant check for {rule_id}"
+                        },
+                        "defaultConfiguration": {"level": "error"},
+                    }
+                )
+
+            msg_text = str(
+                finding.get("detail")
+                or finding.get("message")
+                or finding.get("violation_detail")
+                or "Invariant check violation"
+            )
+            results.append(
+                {
+                    "ruleId": rule_id,
+                    "level": "error"
+                    if finding.get("severity") in ("critical", "high")
+                    else "warning",
+                    "message": {"text": msg_text},
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": f"scenarios/{finding.get('trial_id', 'trial')}.yaml"
+                                },
+                                "region": {"startLine": 1},
+                            }
+                        }
+                    ],
+                }
+            )
+
+        return {
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "Agent Reliability Lab",
+                            "semanticVersion": "0.4.0",
+                            "informationUri": "https://github.com/karthikrshet/agent-reliability",
+                            "rules": rules,
+                        }
+                    },
+                    "results": results,
+                }
+            ],
+        }
+
+    def generate_compliance_report(self, standard: str = "ISO42001") -> dict[str, Any]:
+        """Generate formal AI governance compliance attestation (ISO/IEC 42001:2023 or SOC 2)."""
+        chain_hash = self.collector.current_hash if self.collector else "no-evidence"
+        ledger_valid = self.collector.verify_ledger_integrity() if self.collector else True
+
+        passed_rate_target = self.res.pass_rate >= 0.80
+        zero_critical = self.res.critical_failures == 0
+
+        controls = [
+            {
+                "control_id": "ISO-42001-A.6.2.2" if standard == "ISO42001" else "SOC2-CC7.2",
+                "name": "AI System Robustness & Chaos Resilience",
+                "status": "SATISFIED" if passed_rate_target and zero_critical else "DEFICIENT",
+                "evidence": f"Evaluated pass rate: {self.res.pass_rate:.1%}, Critical failures: {self.res.critical_failures}",
+            },
+            {
+                "control_id": "ISO-42001-A.6.2.4" if standard == "ISO42001" else "SOC2-CC6.1",
+                "name": "Cryptographic Audit Trail & Tamper Detection",
+                "status": "SATISFIED" if ledger_valid else "DEFICIENT",
+                "evidence": f"Evidence root hash: {chain_hash}, Verified: {ledger_valid}",
+            },
+            {
+                "control_id": "ISO-42001-A.8.4" if standard == "ISO42001" else "SOC2-CC6.6",
+                "name": "Deterministic Invariant Validation",
+                "status": "SATISFIED" if zero_critical else "DEFICIENT",
+                "evidence": f"Total critical findings: {len(self.res.critical_findings)}",
+            },
+        ]
+
+        all_satisfied = all(c["status"] == "SATISFIED" for c in controls)
+
+        return {
+            "standard": "ISO/IEC 42001:2023"
+            if standard == "ISO42001"
+            else "SOC 2 Type II (Trust Services Criteria)",
+            "run_id": self.res.run_id,
+            "attestation_timestamp": datetime.now(UTC).isoformat(),
+            "compliance_verdict": "COMPLIANT" if all_satisfied else "NON_COMPLIANT",
+            "evidence_root_hash": chain_hash,
+            "controls": controls,
+        }

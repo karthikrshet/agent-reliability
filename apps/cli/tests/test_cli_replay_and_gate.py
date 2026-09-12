@@ -143,7 +143,7 @@ def test_cli_report_command_formats() -> None:
         # Test report in markdown format
         res_md = runner.invoke(app, ["report", "latest", "--format", "markdown"])
         assert res_md.exit_code == 0
-        assert "# ARL Evaluation Report" in res_md.output
+        assert "Evaluation Audit Report" in res_md.output
 
         # Test report in json format
         res_json = runner.invoke(app, ["report", "latest", "--format", "json"])
@@ -222,3 +222,50 @@ def test_cli_replay_failure_by_identifier() -> None:
     assert res.exit_code == 0
     assert "CRITICAL FAILURE RECORD: ARL-FAIL-9999" in res.output
     assert "inv-duplicate-refund" in res.output
+
+
+def test_cli_report_sarif_and_compliance_formats() -> None:
+    from arl.evidence.disk_store import persist_run_to_disk
+
+    run_id = "run-sample-reports-format"
+    manifest = {
+        "run_id": run_id,
+        "scenario_count": 1,
+        "evidence_root_hash": "a" * 64,
+        "is_reference_only": False,
+    }
+    summary = {
+        "run_id": run_id,
+        "completed_trials": 2,
+        "passed_trials": 2,
+        "failed_trials": 0,
+        "pass_rate": 1.0,
+        "critical_failures": 0,
+        "verdict": "READY",
+    }
+    persist_run_to_disk(
+        run_id=run_id,
+        manifest=manifest,
+        events=[],
+        faults=[],
+        invariants=[],
+        summary=summary,
+        failures=[],
+    )
+
+    # 1. SARIF format
+    sarif_res = runner.invoke(app, ["report", run_id, "--format", "sarif"])
+    assert sarif_res.exit_code == 0
+    assert "2.1.0" in sarif_res.output
+    assert "Agent Reliability Lab" in sarif_res.output
+
+    # 2. ISO 42001 format
+    iso_res = runner.invoke(app, ["report", run_id, "--format", "compliance"])
+    assert iso_res.exit_code == 0
+    assert "ISO/IEC 42001:2023" in iso_res.output
+    assert "COMPLIANT" in iso_res.output
+
+    # 3. SOC 2 format
+    soc2_res = runner.invoke(app, ["report", run_id, "--format", "soc2"])
+    assert soc2_res.exit_code == 0
+    assert "SOC 2 Type II" in soc2_res.output
