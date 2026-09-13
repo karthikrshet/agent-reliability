@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
+import yaml
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
@@ -48,6 +49,7 @@ from arl.protocol.adapter import AgentAdapter
 from arl.scenario_engine.fuzzer import ScenarioFuzzer
 from arl.scenario_engine.loader import load_scenario
 from arl.scenario_engine.schema import ParsedScenario
+from arl.scenario_engine.synthesizer import IncidentSynthesizer
 
 app = typer.Typer(
     name="agentlab",
@@ -1363,6 +1365,73 @@ def compare_command(
         for imp in result["improvements"]:
             imp_table.add_row(imp)
         console.print(imp_table)
+
+
+@app.command(name="synthesize")
+def synthesize_command(
+    trace_path: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to production incident trace JSON or log file",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+        ),
+    ],
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output path for synthesized scenario YAML (defaults to <trace_name>.yaml)",
+        ),
+    ] = None,
+    scenario_id: Annotated[
+        str | None,
+        typer.Option("--id", help="Explicit scenario ID override"),
+    ] = None,
+    category: Annotated[
+        str | None,
+        typer.Option(
+            "--category", "-c", help="Evaluation category override (e.g. failure-recovery)"
+        ),
+    ] = None,
+    severity: Annotated[
+        str | None,
+        typer.Option("--severity", "-s", help="Severity override (critical, high, medium, low)"),
+    ] = None,
+) -> None:
+    """Synthesize schema-valid ARL evaluation scenario from a production incident trace."""
+    synthesizer = IncidentSynthesizer()
+    try:
+        out_file = synthesizer.synthesize_file(
+            trace_path=trace_path,
+            output_path=output,
+            scenario_id=scenario_id,
+            category=category,
+            severity=severity,
+        )
+    except Exception as exc:
+        console.print(f"[bold red]Synthesis failed:[/bold red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    with open(out_file, encoding="utf-8") as f:
+        scenario_yaml = yaml.safe_load(f)
+
+    console.print(
+        Panel(
+            f"[bold]Scenario ID:[/bold] [cyan]{scenario_yaml.get('id')}[/cyan]\n"
+            f"[bold]Title:[/bold] {scenario_yaml.get('title')}\n"
+            f"[bold]Category:[/bold] {scenario_yaml.get('category')} ([yellow]{scenario_yaml.get('severity')}[/yellow])\n"
+            f"[bold]Injected Faults:[/bold] {len(scenario_yaml.get('fault_plan', []))}\n"
+            f"[bold]Output File:[/bold] [green]{out_file}[/green]\n\n"
+            f"[dim]Execute regression test using:[/dim]\n"
+            f"[bold]agentlab test {out_file} --reference-agent[/bold]",
+            title="[bold green]Production Incident Synthesized Successfully[/bold green]",
+            border_style="green",
+        )
+    )
 
 
 if __name__ == "__main__":

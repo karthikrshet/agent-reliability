@@ -20,6 +20,7 @@ from arl.scenario_engine.schema import (
     ParsedScenario,
     ScenarioEnvironmentSpec,
 )
+from arl.scenario_engine.synthesizer import IncidentSynthesizer
 
 __all__ = [
     "SCENARIO_JSON_SCHEMA_V1",
@@ -32,6 +33,7 @@ __all__ = [
     "FaultTriggerSpec",
     "ForbiddenEffectSpec",
     "GradingSpec",
+    "IncidentSynthesizer",
     "ParsedScenario",
     "ScenarioEnvironmentSpec",
     "ScenarioFuzzer",
