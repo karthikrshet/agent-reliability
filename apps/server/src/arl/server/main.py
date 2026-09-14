@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 
 from arl.core.errors import DomainError
 from arl.core.storage.models import Base
+from arl.server.auth import TenantContextMiddleware
 from arl.server.db import engine
 from arl.server.routes.evidence import router as evidence_router
 from arl.server.routes.health import router as health_router
@@ -44,7 +45,8 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS configuration for Next.js frontend
+    # Multi-tenant context and CORS configuration
+    app.add_middleware(TenantContextMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

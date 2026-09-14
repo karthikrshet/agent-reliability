@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from arl.core.storage.models import AgentDefinitionModel, AgentVersionModel, ProjectModel
+from arl.server.auth import AuthPrincipal, Role, require_role
 from arl.server.db import get_db_session
 
 router = APIRouter(prefix="/api/v1/projects", tags=["Projects"])
@@ -57,6 +58,7 @@ class AgentResponse(BaseModel):
 async def create_project(
     req: CreateProjectRequest,
     session: AsyncSession = Depends(get_db_session),
+    _principal: AuthPrincipal = Depends(require_role([Role.ADMIN, Role.OPERATOR])),
 ) -> ProjectResponse:
     """Create a new project workspace."""
     proj_id = f"proj-{uuid.uuid4().hex[:12]}"
@@ -224,6 +226,7 @@ async def update_project(
 async def delete_project(
     project_id: str,
     session: AsyncSession = Depends(get_db_session),
+    _principal: AuthPrincipal = Depends(require_role(Role.ADMIN)),
 ) -> None:
     """Delete a project workspace."""
     stmt = select(ProjectModel).where(ProjectModel.id == project_id)

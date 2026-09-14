@@ -52,14 +52,15 @@ timeline
 - [x] Dashboard empty/loading/error state hardening.
 - [x] Strict CI/CD quality pipeline (MyPy, Ruff, Pytest >= 85%, Next.js build).
 
-### Milestone 3: v0.3.0 — Ecosystem & Distributed Scale (Planned)
-- [ ] Native framework adapters: LangGraph, CrewAI, AutoGen.
-- [ ] Distributed Kubernetes worker execution pool with Redis pub/sub.
-- [ ] Real-time Server-Sent Events (SSE) streaming for live trial trajectory logs.
-- [ ] Multi-tenant workspace isolation with RBAC and OAuth2/OIDC.
-- [ ] Scenario synthesis: AI-assisted scenario authoring from production incident logs.
+### Milestone 3: v0.3.0 — Ecosystem & Distributed Scale (Completed)
+- [x] Native framework adapters: LangGraph, CrewAI (`adapters/crewai`).
+- [x] Continuous CI Agent Reliability Gate (`agentlab test --gate` and GitHub Action).
+- [x] Real-time Server-Sent Events (SSE) streaming for live trial trajectory logs.
+- [x] Multi-tenant workspace isolation with RBAC and role enforcement (`apps/server/src/arl/server/auth.py`).
+- [x] Scenario synthesis: automated scenario authoring from production incident traces (`agentlab synthesize`).
 
-### Milestone 4: v1.0.0 — Enterprise GA & Compliance (Future)
-- [ ] SOC2 & ISO 42001 AI governance compliance report templates.
-- [ ] GitHub Actions Agent Regression Gate (fails PRs if agent reliability drops below target Wilson CI).
+### Milestone 4: v1.0.0 — Enterprise GA & Compliance (In Progress)
+- [x] SOC2 & ISO/IEC 42001:2023 AI governance compliance reporting and OASIS SARIF v2.1.0 generation.
+- [x] GitHub Actions Agent Regression Gate (fails PRs if agent reliability drops below target Wilson CI).
 - [ ] Hardware-isolated microVM sandboxes (Firecracker / gVisor) for arbitrary code execution agents.
+- [ ] Distributed Kubernetes worker execution pool with Redis pub/sub.

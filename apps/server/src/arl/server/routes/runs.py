@@ -29,6 +29,7 @@ from arl.core.storage.models import (
     ToolCallModel,
     TrialModel,
 )
+from arl.server.auth import AuthPrincipal, Role, require_role
 from arl.server.db import get_db_session
 
 router = APIRouter(tags=["Runs & Trials"])
@@ -94,6 +95,7 @@ class TrialDetailResponse(BaseModel):
 async def create_evaluation_run(
     req: CreateRunRequest,
     session: AsyncSession = Depends(get_db_session),
+    _principal: AuthPrincipal = Depends(require_role([Role.ADMIN, Role.OPERATOR])),
 ) -> RunSummaryResponse:
     """Trigger a new evaluation run across specified scenarios."""
     # 1. Verify project and agent version exist
@@ -159,12 +161,14 @@ async def create_evaluation_run(
             ScenarioVersionModel(
                 id=stub_ver_id,
                 scenario_id=def_sc_id,
+                version_tag="1.0.0",
                 schema_version="1.0",
                 environment_name="customer-support",
                 environment_version="1.0.0",
                 seed=42,
                 source_yaml="",
                 source_hash="sha256-stub",
+                created_at=datetime.now(UTC),
             )
         )
         scenario_versions.append(stub_ver_id)
@@ -287,6 +291,7 @@ async def get_run(
 async def cancel_run(
     run_id: str,
     session: AsyncSession = Depends(get_db_session),
+    _principal: AuthPrincipal = Depends(require_role(Role.ADMIN)),
 ) -> RunSummaryResponse:
     """Cancel an active or pending evaluation run."""
     stmt = select(EvaluationRunModel).where(EvaluationRunModel.id == run_id)

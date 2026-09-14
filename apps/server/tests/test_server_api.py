@@ -339,3 +339,94 @@ async def test_stream_run_events_disk_run(client: AsyncClient) -> None:
     assert "run_started" in content
     assert "trial_completed" in content
     assert "run_completed" in content
+
+
+@pytest.mark.asyncio
+async def test_multitenant_context_middleware(client: AsyncClient) -> None:
+    res = await client.get("/healthz", headers={"X-Tenant-ID": "tenant-acme-corp"})
+    assert res.status_code == 200
+    assert res.headers.get("X-Tenant-ID") == "tenant-acme-corp"
+
+
+@pytest.mark.asyncio
+async def test_rbac_role_enforcement_on_project_routes(client: AsyncClient) -> None:
+    # 1. Viewer trying to create a project -> 403 Forbidden
+    res_viewer = await client.post(
+        "/api/v1/projects",
+        json={"name": "Forbidden Project", "slug": "forbidden-proj"},
+        headers={"X-User-Role": "viewer"},
+    )
+    assert res_viewer.status_code == 403
+    assert "Insufficient permissions" in res_viewer.json()["detail"]
+
+    # 2. Operator creating a project -> 201 Created
+    res_oper = await client.post(
+        "/api/v1/projects",
+        json={"name": "Operator Project", "slug": "operator-proj"},
+        headers={"X-User-Role": "operator"},
+    )
+    assert res_oper.status_code == 201
+    proj_id = res_oper.json()["id"]
+
+    # 3. Operator trying to delete project -> 403 Forbidden (requires admin)
+    res_del_oper = await client.delete(
+        f"/api/v1/projects/{proj_id}",
+        headers={"X-User-Role": "operator"},
+    )
+    assert res_del_oper.status_code == 403
+
+    # 4. Admin deleting project -> 204 No Content
+    res_del_admin = await client.delete(
+        f"/api/v1/projects/{proj_id}",
+        headers={"X-User-Role": "admin"},
+    )
+    assert res_del_admin.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_rbac_structured_api_key_and_cancel_run(client: AsyncClient) -> None:
+    # 1. Create project and run as admin
+    res_p = await client.post(
+        "/api/v1/projects",
+        json={"name": "Run Project", "slug": "run-proj"},
+        headers={"X-API-Key": "arl_live_tenant1_admin_secretxyz123"},
+    )
+    assert res_p.status_code == 201
+    proj_id = res_p.json()["id"]
+
+    res_agent = await client.post(
+        f"/api/v1/projects/{proj_id}/agents",
+        json={"name": "Test Agent", "framework": "http"},
+        headers={"X-API-Key": "arl_live_tenant1_admin_secretxyz123"},
+    )
+    assert res_agent.status_code == 201
+    agent_ver_id = res_agent.json()["latest_version_id"]
+
+    # Create run
+    res_run = await client.post(
+        "/api/v1/runs",
+        json={
+            "project_id": proj_id,
+            "agent_version_id": agent_ver_id,
+            "scenario_ids": [],
+            "trials_per_scenario": 1,
+        },
+        headers={"X-User-Role": "operator"},
+    )
+    assert res_run.status_code == 201
+    run_id = res_run.json()["id"]
+
+    # 2. Viewer cannot cancel run -> 403
+    res_cancel_viewer = await client.post(
+        f"/api/v1/runs/{run_id}/cancel",
+        headers={"X-User-Role": "viewer"},
+    )
+    assert res_cancel_viewer.status_code == 403
+
+    # 3. Admin can cancel run -> 200
+    res_cancel_admin = await client.post(
+        f"/api/v1/runs/{run_id}/cancel",
+        headers={"X-API-Key": "arl_live_tenant1_admin_secretxyz123"},
+    )
+    assert res_cancel_admin.status_code == 200
+    assert res_cancel_admin.json()["state"] == "CANCELLED"

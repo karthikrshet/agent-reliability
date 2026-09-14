@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-09-14
+
+### Added
+- **Native CrewAI Framework Adapter** (`adapters/crewai`): Full conformance to ARL `AgentAdapter` protocol, multi-agent session lifecycle management, tool call capture, resume/cancellation handling, and comprehensive conformance test suite.
+- **Continuous CI Agent Reliability Gate** (`.github/actions/agent-reliability-gate/action.yml`): Pre-built composite GitHub Action and CLI `--gate` flag with automatic GitHub Step Summary markdown reporting and PR gating outputs.
+- **Enterprise Governance Reports**: Native OASIS SARIF v2.1.0 output for GitHub Advanced Security code scanning ingestion and formal ISO/IEC 42001:2023 & SOC 2 Type II AI trustworthiness compliance attestation.
+- **Production Incident-to-Scenario Synthesizer** (`packages/scenario-engine/src/arl/scenario_engine/synthesizer.py`): Ingests production crash traces (HTTP 429/500/503, connection refused, timeouts, deadlocks) and outputs validated ARL regression test scenario YAML via `agentlab synthesize`.
+- **Multi-Tenant RBAC Permissions Middleware** (`apps/server/src/arl/server/auth.py`): Fine-grained role-based access control (`admin`, `operator`, `viewer`, `system`), structured API key parsing, tenant isolation headers, and route enforcement on destructive server operations.
+
+---
+
 ## [0.2.1-beta.1] - 2026-09-02
 
 ### Fixed & Hardened (Integrity Release)
