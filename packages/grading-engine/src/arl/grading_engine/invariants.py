@@ -170,14 +170,14 @@ def evaluate_invariant(
             passed = not _values_equal(spec.value, observed)
 
         # 3. Numeric ordering
-        elif op == "lt":
-            passed = float(observed) < float(spec.value)
-        elif op == "lte":
-            passed = float(observed) <= float(spec.value)
-        elif op == "gt":
-            passed = float(observed) > float(spec.value)
-        elif op == "gte":
-            passed = float(observed) >= float(spec.value)
+        elif op in ("lt", "less_than", "<"):
+            passed = observed is not None and float(observed) < float(spec.value)
+        elif op in ("lte", "less_than_or_equal", "<="):
+            passed = observed is not None and float(observed) <= float(spec.value)
+        elif op in ("gt", "greater_than", ">"):
+            passed = observed is not None and float(observed) > float(spec.value)
+        elif op in ("gte", "greater_than_or_equal", ">="):
+            passed = observed is not None and float(observed) >= float(spec.value)
 
         # 4. Count operators
         elif op == "count_eq":

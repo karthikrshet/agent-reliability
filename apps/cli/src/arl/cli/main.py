@@ -44,7 +44,7 @@ from arl.grading_engine.invariants import (
     InvariantSpec,
     InvariantStatus,
 )
-from arl.grading_engine.stats import compare_runs
+from arl.grading_engine.stats import compare_runs, compute_wilson_score_interval
 from arl.protocol.adapter import AgentAdapter
 from arl.scenario_engine.fuzzer import ScenarioFuzzer
 from arl.scenario_engine.loader import load_scenario
@@ -317,10 +317,31 @@ async def _run_evaluation_async(
                     ]
                 )
 
-            # Invariant Engine evaluation against post-execution world state
+            # Invariant Engine evaluation against post-execution world state & tool calls
             final_world_state = (
                 env.export_world_state() if hasattr(env, "export_world_state") else {}
             )
+            eval_context = {
+                **final_world_state,
+                "world_state": final_world_state,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "name": tc.tool_name,
+                        "tool_name": tc.tool_name,
+                        "arguments": getattr(tc, "call_arguments", getattr(tc, "arguments", {})),
+                    }
+                    for tc in exec_res.tool_calls
+                ],
+                "turns": [
+                    {
+                        "turn_index": t.turn_index,
+                        "raw_response": getattr(t, "raw_response", None),
+                        "finish_reason": getattr(t, "finish_reason", None),
+                    }
+                    for t in exec_res.turns
+                ],
+            }
             trial_invariants = [
                 InvariantSpec(
                     id=f"{scenario.id}-{exp.path}",
@@ -332,7 +353,7 @@ async def _run_evaluation_async(
                 )
                 for exp in scenario.expected_effects
             ]
-            trial_inv_results = InvariantEngine.evaluate_all(trial_invariants, final_world_state)
+            trial_inv_results = InvariantEngine.evaluate_all(trial_invariants, eval_context)
             all_invariants.extend(trial_inv_results)
 
             # Deterministic evaluation

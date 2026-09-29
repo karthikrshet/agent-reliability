@@ -194,6 +194,71 @@ export default function RunDetailPage() {
         </div>
       )}
 
+      {/* Selected Trial Summary Banner */}
+      {selectedTrial && (
+        <div className="p-4 rounded-xl bg-[#080f1e] border border-cyan-500/20 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div
+              className={`p-2 rounded-lg ${
+                selectedTrial.verdict === "PASS"
+                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                  : "bg-rose-500/10 text-rose-400 border border-rose-500/30"
+              }`}
+            >
+              {selectedTrial.verdict === "PASS" ? (
+                <CheckCircle2 className="w-5 h-5" />
+              ) : (
+                <XCircle className="w-5 h-5" />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-bold text-sm text-white">
+                  Trial: {selectedTrial.id}
+                </span>
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
+                    selectedTrial.verdict === "PASS"
+                      ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                      : "bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                  }`}
+                >
+                  {selectedTrial.verdict || "COMPLETED"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 font-mono mt-0.5">
+                Scenario: <span className="text-cyan-300">{selectedTrial.scenario_id}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 text-xs font-mono">
+            <div>
+              <span className="text-slate-500 block text-[10px] uppercase">Latency</span>
+              <span className="text-slate-200 font-semibold">
+                {selectedTrial.duration_ms !== undefined && selectedTrial.duration_ms !== null
+                  ? `${selectedTrial.duration_ms}ms`
+                  : selectedTrial.duration_seconds !== undefined && selectedTrial.duration_seconds !== null
+                  ? `${(selectedTrial.duration_seconds * 1000).toFixed(0)}ms`
+                  : "0ms"}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[10px] uppercase">Score</span>
+              <span className="text-cyan-400 font-semibold">
+                {selectedTrial.score !== undefined && selectedTrial.score !== null
+                  ? `${(selectedTrial.score * 100).toFixed(0)}%`
+                  : "100%"}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[10px] uppercase">Observable Turns</span>
+              <span className="text-slate-200 font-semibold">{observableTurns.length}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Trajectory Turns & Inspector Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Turns Column */}

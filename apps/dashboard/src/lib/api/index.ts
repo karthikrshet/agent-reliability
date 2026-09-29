@@ -79,6 +79,7 @@ export interface TrialDetail {
   verdict?: "PASS" | "FAIL" | "CRITICAL_FAIL" | "NON_PRODUCTION_REFERENCE";
   score?: number;
   duration_ms?: number;
+  duration_seconds?: number;
   total_cost_usd?: number;
   findings?: Array<{
     dimension: string;
